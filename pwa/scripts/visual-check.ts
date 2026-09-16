@@ -13,14 +13,23 @@ const projectRoot = join(root, '..')
 const SCALE = 420 / 160
 const VIEWPORT = { width: Math.round(1080 / SCALE), height: Math.round(2340 / SCALE) }
 
-// App is edge-to-edge (transparent status/nav bars). Crop only the 1 status-bar row visible.
-const TOP_BAR_PX = Math.round(1 * SCALE)
+// Android status bar: 24dp at density 420. Cropped from Android references only.
+// Chrome-rendered baselines (11-chrome.png) have no status bar → crop 1dp.
+const ANDROID_STATUS_BAR_PX = Math.round(24 * SCALE) // 63px
+const CHROME_TOP_CROP_PX = Math.round(1 * SCALE)     // 3px
 const BOTTOM_BAR_PX = 0
 
+// Screens whose reference is a raw Android adb screenshot (has a status bar to crop)
+const ANDROID_REF_SCREENS = new Set([
+  'reader-pink', 'nav-drawer', 'dialog-select-theme',
+  'info-viewer-preface', 'info-viewer-introduction', 'info-viewer-biography',
+  'info-viewer-developer', 'dialog-about', 'audio-download', 'audio-delete',
+])
+
 const SCREEN_SCREENSHOT_MAP: Record<string, string> = {
-  // 11-chrome.png = Chrome-rendered baseline; 11.png = Android device (ICC color diff expected)
+  // *-chrome.png = Chrome-rendered baseline; raw .png = Android device (font rendering differs)
   splash: '11-chrome.png',
-  reader: '01.png',
+  reader: '01-chrome.png',
   'reader-pink': '12.png',
   'nav-drawer': '02.png',
   'dialog-select-theme': '03.png',
@@ -70,8 +79,8 @@ async function run() {
 
   const routeMap: Record<string, string> = {
     splash: '/',
-    reader: '/',
-    'reader-pink': '/?theme=PINK',
+    reader: '/s/18/1?nosplash=1',
+    'reader-pink': '/s/18/3?nosplash=1&theme=PINK',
     'nav-drawer': '/?drawer=open',
     'info-viewer-preface': '/info/preface',
     'info-viewer-introduction': '/info/introduction',
@@ -92,17 +101,18 @@ async function run() {
   const screenshotBuf = await page.screenshot({ type: 'png' })
   await browser.close()
 
-  // Crop status + gesture bars from both images
-  function cropBars(buf: Buffer): PNG {
+  function cropTop(buf: Buffer, topPx: number): PNG {
     const png = PNG.sync.read(buf)
-    const cropH = png.height - TOP_BAR_PX - BOTTOM_BAR_PX
+    const cropH = png.height - topPx - BOTTOM_BAR_PX
     const out = new PNG({ width: png.width, height: cropH })
-    PNG.bitblt(png, out, 0, TOP_BAR_PX, png.width, cropH, 0, 0)
+    PNG.bitblt(png, out, 0, topPx, png.width, cropH, 0, 0)
     return out
   }
 
-  const refPng = cropBars(readFileSync(refPath))
-  const candidatePng = cropBars(screenshotBuf)
+  // Android refs: crop real status bar; Chrome refs and candidate: crop only 1dp
+  const refTopCrop = ANDROID_REF_SCREENS.has(screenId) ? ANDROID_STATUS_BAR_PX : CHROME_TOP_CROP_PX
+  const refPng = cropTop(readFileSync(refPath), refTopCrop)
+  const candidatePng = cropTop(screenshotBuf, CHROME_TOP_CROP_PX)
 
   // Crop both to shared area so pixelmatch gets equal-sized buffers
   const w = Math.min(refPng.width, candidatePng.width)

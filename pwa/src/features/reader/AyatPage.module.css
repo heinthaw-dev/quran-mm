@@ -1,0 +1,67 @@
+.page {
+  padding-top: 6px;
+  padding-bottom: 24px;
+  min-height: 100%;
+}
+
+.arabicText {
+  margin: 0;
+  font-family: var(--font-arabic);
+  color: var(--color-text-arabic);
+  text-align: right;
+  line-height: 1.8;
+}
+
+.bodyText {
+  margin: 0;
+  font-family: var(--font-ui);
+  color: var(--color-text-body);
+  white-space: pre-wrap;
+}
+
+.translationNote {
+  display: block;
+  font-size: 0.75rem;
+}
+
+.translationNoteLabel {
+  font-style: italic;
+  color: var(--color-text-body);
+  font-size: 0.75rem;
+}
+
+.emptyNotes {
+  margin: 0;
+  font-family: var(--font-ui);
+  color: #9E9E9E;
+  font-size: calc(15 / 16 * 1rem);
+  white-space: pre-wrap;
+  line-height: 1.6;
+}
+
+.iconBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  border-radius: 4px;
+  flex-shrink: 0;
+}
+
+.iconBtn:disabled {
+  cursor: default;
+}
+
+.scaleBtn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-family: var(--font-ui);
+  font-size: calc(15 / 16 * 1rem);
+  color: var(--color-primary);
+  padding: 0 4px;
+  line-height: 1;
+}

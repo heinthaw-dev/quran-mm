@@ -1,0 +1,129 @@
+.topBar {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background-color: var(--color-white);
+  box-shadow: var(--shadow-topbar);
+  padding: 8px 4px;
+  padding-top: calc(8px + env(safe-area-inset-top, 0px));
+  font-family: var(--font-ui);
+}
+
+.row1 {
+  display: flex;
+  align-items: center;
+  justify-content: space-evenly;
+}
+
+.row2 {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 12px;
+}
+
+.row2Left {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.divider {
+  border: none;
+  border-top: 1px solid rgba(0, 0, 0, 0.12);
+  margin: 4px 0;
+}
+
+.stepper {
+  display: flex;
+  align-items: center;
+}
+
+.iconBtn32 {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  padding: 4px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--color-text-body);
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.iconBtn32:disabled {
+  cursor: default;
+}
+
+.iconBtn28 {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 2px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--color-text-body);
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.iconBtn28:disabled {
+  cursor: default;
+}
+
+.iconBtn22 {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 3px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.chip {
+  min-width: 60px;
+  padding: 4px 8px;
+  margin: 0 2px;
+  background-color: var(--color-white);
+  border: none;
+  border-radius: 8px;
+  box-shadow: 0 4px 4px rgba(0, 0, 0, 0.12);
+  cursor: pointer;
+  font-family: var(--font-ui);
+  font-size: var(--fs-chip);
+  line-height: calc(14 / 16 * 1rem);
+  color: var(--color-text-body);
+  text-align: center;
+  white-space: nowrap;
+}
+
+.englishName {
+  font-size: var(--fs-topbar-en);
+  font-weight: 700;
+  color: var(--color-primary);
+  white-space: nowrap;
+}
+
+.myanmarName {
+  font-size: var(--fs-topbar-mm);
+  font-weight: 700;
+  color: var(--color-primary);
+  line-height: calc(20 / 16 * 1rem);
+  text-align: right;
+  max-width: 55%;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}

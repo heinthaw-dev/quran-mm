@@ -1,0 +1,24 @@
+.footnoteMarker {
+  color: var(--color-accent);
+  font-size: 0.75rem;
+  font-weight: 700;
+  vertical-align: super;
+  line-height: 0;
+}
+
+.noteLabel {
+  color: var(--color-accent);
+  font-weight: 700;
+}
+
+.crossRef {
+  color: var(--color-primary);
+  font-weight: 700;
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: inherit;
+  line-height: inherit;
+}

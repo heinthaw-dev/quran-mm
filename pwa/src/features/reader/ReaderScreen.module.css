@@ -1,0 +1,18 @@
+.screen {
+  display: flex;
+  flex-direction: column;
+  height: 100dvh;
+  overflow: hidden;
+}
+
+.pager {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+  will-change: transform;
+}
+
+.loading {
+  height: 100%;
+}
