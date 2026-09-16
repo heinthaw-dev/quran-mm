@@ -1,0 +1,8 @@
+appKey.txt
+pwa/node_modules/
+pwa/dist/
+pwa/.playwright/
+pwa/test-results/
+pwa/playwright-report/
+pwa/coverage/
+pwa/*.tsbuildinfo
