@@ -19,7 +19,7 @@ One row per screen, notable state, or feature. Status: `todo` · `in-progress` �
 
 | Item | Type | Screenshot | Route | Status | Notes |
 |---|---|---|---|---|---|
-| Splash | screen | 11.png | `/` | todo | kw_logo centered, near-white bg, 2000 ms |
+| Splash | screen | 11.png | `/` | done | kw_logo centered, near-white bg, 2000 ms; visual test uses 11-chrome.png (Android ICC color diff) |
 | Reader (single-column) | screen | 01.png (Blue) | `/` | todo | HorizontalPager, 3 cards per ayat page |
 | Reader — Pink theme | state | 12.png | `/` | todo | Same layout, Pink theme tokens |
 | Reader — empty Tafsir notes | state | 12.png | `/` | todo | "No Explanation Notes (Tafsir) for this Ayat." placeholder |
