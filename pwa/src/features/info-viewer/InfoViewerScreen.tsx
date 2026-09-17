@@ -8,7 +8,7 @@ const PAGE_TITLES: Record<string, string> = {
   preface: 'Preface',
   introduction: 'Introduction',
   biography: 'Biography',
-  developer: 'Developer / About',
+  developer: 'Developer',
 }
 
 export function InfoViewerScreen() {

@@ -14,12 +14,12 @@ Loads `file:///android_asset/<page>.html`. Top-bar title = "Preface" / "Introduc
 - Preface — `Preface (အမှာစာ)` — starts with basmala, ends with Arabic verse block.
 - Introduction — `Introduction (နိဒါန်း)`.
 - Biography — `Biography (ဘာသာပြန်သူ၏ အတ္ထုပ္ပတ္တိအကျဉ်း)`.
-- Developer — `Developer's Intention` (Burmese + italic English paragraphs; ends with a boxed Feedback note).
+- Developer — top-bar title is just **"Developer"**. Three sections, each a title + a background-filled body box: (1) `Developer's Intention` (h2 primary, centered) with a `.content-box` + a `.contact-info` Feedback box (email link); (2) `Disclaimer of Liability` (h3 red `#c62828`, centered) + `.disclaimer-box` (#F0F4F8); (3) `ရှင်းလင်းချက် (Disclaimer)` (h3 red, centered) + `.disclaimer-box`.
 - Files: `preface.html` (~18.7 KB), `introduction.html` (~13.2 KB), `biography.html` (~5.9 KB), `developer.html` (~7.9 KB). All UTF-8, CRLF, Burmese content.
 
 ## Behavior
 - Back arrow / Close both dismiss.
 - PWA: render the HTML inline (fetch from `/data/<page>.html`), styled to match; no WebView needed.
 
-## Open questions
-- Whether each HTML carries its own CSS or inherits app styles — check in port phase.
+## Resolved
+- Each bundled HTML carries its own `<head><style>`. The PWA renders `body.innerHTML` (via DOMParser), which drops that `<style>`, so the section styling is mirrored in `InfoViewerScreen.module.css` with tokens where they map. developer.html uses classes `.content-box`, `.disclaimer-box`, `.contact-info`, `.email-link`, `.dev-name` and red `h3` headings — unique to that page, so the module rules don't affect the other three.

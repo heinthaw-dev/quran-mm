@@ -29,7 +29,7 @@ One row per screen, notable state, or feature. Status: `todo` · `in-progress` �
 | Info viewer — Preface | screen | 04.png | `/info/preface` | done | WebView → inline HTML; Chrome baseline 04-chrome.png; visual 0.00% PASS |
 | Info viewer — Introduction | screen | 05.png | `/info/introduction` | done | Chrome baseline 05-chrome.png; visual 0.00% PASS |
 | Info viewer — Biography | screen | 06.png | `/info/biography` | done | Chrome baseline 06-chrome.png; visual 0.00% PASS |
-| Info viewer — Developer | screen | 07.png | `/info/developer` | done | Chrome baseline 07-chrome.png; visual 0.00% PASS |
+| Info viewer — Developer | screen | 07.png | `/info/developer` | done | Title "Developer" (was "Developer / About"); 3 title+background sections (Intention / Disclaimer of Liability / ရှင်းလင်းချက်) mirrored from developer.html's own CSS; Chrome baseline 07-chrome.png; visual 0.00% PASS |
 | Dialog: Select Surah | dialog | — | overlay | done | Scrollable list, current surah highlighted + auto-scrolled; tap row → opens Jump to Ayat |
 | Dialog: Jump to Ayat | dialog | — | overlay | done | Outlined input, validates 1..totalAyats, Go = filled primary pill; opened from Ayat chip or after surah select |
 | Dialog: Select App Theme | dialog | 03.png | overlay | done | Blue / Green / Pink / Brown; Chrome baseline 13-chrome.png; visual check PASS 0.00% |

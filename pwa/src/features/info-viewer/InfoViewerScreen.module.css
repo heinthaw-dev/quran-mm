@@ -115,3 +115,52 @@
   margin-bottom: 0.5rem;
   font-family: var(--font-ui);
 }
+
+/* developer.html sections — its <head><style> is stripped, so mirror that
+   page's own CSS here (tokens where they map to the fixed HTML colors). */
+.content :global(h3) {
+  color: #c62828; /* developer.html red section heading; no token */
+  font-size: 1.125rem; /* 18px */
+  margin-top: 24px;
+  margin-bottom: 8px;
+  text-align: center;
+  font-family: var(--font-ui);
+}
+
+.content :global(.content-box) {
+  background-color: #f9f9f9; /* near-white section body; no token */
+  padding: 16px;
+  margin-bottom: 20px;
+  border-radius: 4px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.content :global(.disclaimer-box) {
+  background-color: var(--color-bg); /* #F0F4F8 */
+  padding: 16px;
+  margin-bottom: 24px;
+  border-radius: 8px;
+}
+
+.content :global(.contact-info) {
+  text-align: center;
+  margin-top: 30px;
+  padding: 16px;
+  background-color: var(--color-bg); /* #F0F4F8 */
+  border-radius: 8px;
+}
+
+.content :global(.email-link) {
+  display: block;
+  margin: 8px 0;
+  color: var(--color-primary);
+  font-weight: 700;
+  font-size: 1.125rem; /* 18px */
+  text-decoration: none;
+}
+
+.content :global(.dev-name) {
+  font-size: 1rem; /* 16px */
+  font-weight: 700;
+  color: #555555;
+}
