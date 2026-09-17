@@ -33,8 +33,8 @@ One row per screen, notable state, or feature. Status: `todo` · `in-progress` �
 | Dialog: Select Surah | dialog | — | overlay | done | Scrollable list, current surah highlighted + auto-scrolled; tap row → opens Jump to Ayat |
 | Dialog: Jump to Ayat | dialog | — | overlay | done | Outlined input, validates 1..totalAyats, Go = filled primary pill; opened from Ayat chip or after surah select |
 | Dialog: Select App Theme | dialog | 03.png | overlay | done | Blue / Green / Pink / Brown; Chrome baseline 13-chrome.png; visual check PASS 0.00% |
-| Dialog: Select Surahs to Download | dialog | 09.png | overlay | done | Chrome baseline 09-chrome.png; visual 0.00% PASS; download mechanics blocked pending HTTPS mirror URL |
-| Dialog: Download progress | dialog | — | overlay | done | "Downloading Audio" modal: dual bars, ETA (mm:ss), Pause/Resume + Stop; sequential engine, resumable via cache-skip; built to spec + image #4; component test green. No adb capture → no pixel visual test (like other capture-less dialogs). Live download still needs HTTPS host (Q3). |
+| Dialog: Select Surahs to Download | dialog | 09.png | overlay | done | Chrome baseline 09-chrome.png; visual 0.00% PASS; download mechanics live against the ngrok HTTPS host |
+| Dialog: Download progress | dialog | — | overlay | done | "Downloading Audio" modal: dual bars, ETA (mm:ss), Pause/Resume + Stop; sequential engine, resumable via cache-skip; built to spec + image #4; component test green. No adb capture → no pixel visual test (like other capture-less dialogs). Live download works over the ngrok HTTPS host; ngrok free returns its ERR_NGROK_6024 interstitial (no CORS headers) to cors fetch(), so `config.ts` adds `ngrok-skip-browser-warning` for ngrok hosts only. |
 | Dialog: Select Audio to Delete | dialog | 10.png | overlay | done | Cache API entries, not device files; title/freed-size hardcoded #D81B60; Chrome baseline audio-delete-chrome.png; visual 0.00% PASS |
 | Dialog: Delete progress | dialog | — | overlay | todo | Single progress bar (needs capture) |
 | Dialog: Jump History | dialog | — | overlay | todo | Shown when >2 saved positions (needs capture) |

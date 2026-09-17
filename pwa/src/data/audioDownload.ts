@@ -2,7 +2,7 @@
 // so downloaded surahs replay offline. Ports the download loop behind
 // showDownloadDialog (MainActivity.kt:966). Sequential per surah, one ayat at a
 // time, to match the native progress + ETA semantics exactly.
-import { audioUrl } from './config.ts'
+import { audioUrl, AUDIO_FETCH_HEADERS } from './config.ts'
 import { AUDIO_CACHE_NAME } from './audioCache.ts'
 
 export interface DownloadProgress {
@@ -93,7 +93,7 @@ export async function downloadSurahsAudio(
 
       const url = audioUrl(s.number, missing[idx]!)
       try {
-        const res = await fetch(url, { signal })
+        const res = await fetch(url, { signal, headers: AUDIO_FETCH_HEADERS })
         if (res.ok) {
           await cache.put(url, res)
         }
