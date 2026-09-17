@@ -11,3 +11,4 @@ pwa/tests/visual/*-candidate.png
 pwa/tests/visual/*-ref-cropped.png
 pwa/tests/visual/*-cand-cropped.png
 .DS_Store
+pwa/public/audio/
