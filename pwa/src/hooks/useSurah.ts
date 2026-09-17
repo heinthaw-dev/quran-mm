@@ -40,6 +40,8 @@ export interface SurahActions {
   getCurrentRow: () => AyatRow | undefined
   getArabicText: () => string
   getNotesForPage: () => NoteRow[]
+  getArabicTextAt: (index: number) => string
+  getNotesAt: (index: number) => NoteRow[]
 }
 
 const SCALE_STEPS: FontScale[] = [0.8, 0.9, 1.0, 1.1, 1.2, 1.3, 1.4, 1.5]
@@ -110,9 +112,9 @@ export function useSurah(
     pageIndex: 0,
     loadedSurahId: null,
   })
-  const [arabicFontScale, setArabicFontScaleState] = useState<FontScale>(1.0)
-  const [myanmarFontScale, setMyanmarFontScaleState] = useState<FontScale>(1.0)
-  const [noteFontScale, setNoteFontScaleState] = useState<FontScale>(1.0)
+  const [arabicFontScale, setArabicFontScaleState] = useState<FontScale>(prefs.arabicFontScale)
+  const [myanmarFontScale, setMyanmarFontScaleState] = useState<FontScale>(prefs.myanmarFontScale)
+  const [noteFontScale, setNoteFontScaleState] = useState<FontScale>(prefs.noteFontScale)
   const [jumpHistory, setJumpHistory] = useState<JumpTarget[]>([])
   const [error, setError] = useState<Error | null>(null)
 
@@ -176,29 +178,37 @@ export function useSurah(
     if (surahId <= 1) return
     initialAyat.current = 1
     setSurahId((s) => s - 1)
-  }, [surahId])
+    scheduleSave(surahId - 1, 1)
+  }, [surahId, scheduleSave])
 
   const nextSurah = useCallback(() => {
     if (surahId >= 114) return
     initialAyat.current = 1
     setSurahId((s) => s + 1)
-  }, [surahId])
+    scheduleSave(surahId + 1, 1)
+  }, [surahId, scheduleSave])
 
   const prevPage = useCallback(() => {
     if (pageData.pageIndex > 0) {
-      setPageData((prev) => ({ ...prev, pageIndex: prev.pageIndex - 1 }))
+      const newIndex = pageData.pageIndex - 1
+      const newAyatId = pageData.ayats[newIndex]?.ayatId ?? 1
+      setPageData((prev) => ({ ...prev, pageIndex: newIndex }))
+      scheduleSave(surahId, newAyatId)
     } else if (prefs.continuousSwiping && surahId > 1) {
       prevSurah()
     }
-  }, [pageData.pageIndex, prefs.continuousSwiping, surahId, prevSurah])
+  }, [pageData.pageIndex, pageData.ayats, prefs.continuousSwiping, surahId, prevSurah, scheduleSave])
 
   const nextPage = useCallback(() => {
     if (pageData.pageIndex < pageData.ayats.length - 1) {
-      setPageData((prev) => ({ ...prev, pageIndex: prev.pageIndex + 1 }))
+      const newIndex = pageData.pageIndex + 1
+      const newAyatId = pageData.ayats[newIndex]?.ayatId ?? 1
+      setPageData((prev) => ({ ...prev, pageIndex: newIndex }))
+      scheduleSave(surahId, newAyatId)
     } else if (prefs.continuousSwiping && surahId < 114) {
       nextSurah()
     }
-  }, [pageData.pageIndex, pageData.ayats.length, prefs.continuousSwiping, surahId, nextSurah])
+  }, [pageData.pageIndex, pageData.ayats, prefs.continuousSwiping, surahId, nextSurah, scheduleSave])
 
   const handleHistoryClick = useCallback(() => {
     if (jumpHistory.length === 0) return
@@ -254,16 +264,64 @@ export function useSurah(
       .filter((n): n is NoteRow => n !== null)
   }, [pageData, notesIndex])
 
+  const getArabicTextAt = useCallback(
+    (index: number): string => {
+      const row = pageData.ayats[index]
+      if (!row) return ''
+      const ids = row.multiAyats ? parseAyatIds(row.multiAyats) : [row.ayatId]
+      return ids
+        .map((id) => {
+          const ar = getArabicAyat(arabicAyats, surahId, id)
+          if (!ar) return ''
+          return `${ar} ۝${toEasternArabicNumeral(id)}`
+        })
+        .filter(Boolean)
+        .join(' ')
+    },
+    [pageData.ayats, arabicAyats, surahId],
+  )
+
+  const getNotesAt = useCallback(
+    (index: number): NoteRow[] => {
+      const row = pageData.ayats[index]
+      if (!row) return []
+      const translationText = (row.mmTranslation.split('@')[0] ?? '').replace(/#/g, '\n')
+      const markers = [...translationText.matchAll(new RegExp(FOOTNOTE_MARKER_RE.source, 'g'))].map(
+        (m) => m[0]!,
+      )
+      const unique = [...new Set(markers)]
+      return unique
+        .map((m) => {
+          const explanation = notesIndex.get(m)
+          return explanation !== undefined ? { notesId: m, explanation } : null
+        })
+        .filter((n): n is NoteRow => n !== null)
+    },
+    [pageData.ayats, notesIndex],
+  )
+
   const scaleArabic = useCallback(
-    (delta: -1 | 1) => setArabicFontScaleState((s) => clampScale(s, delta)),
+    (delta: -1 | 1) => setArabicFontScaleState((s) => {
+      const next = clampScale(s, delta)
+      onPrefsUpdate({ arabicFontScale: next })
+      return next
+    }),
     [],
   )
   const scaleMyanmar = useCallback(
-    (delta: -1 | 1) => setMyanmarFontScaleState((s) => clampScale(s, delta)),
+    (delta: -1 | 1) => setMyanmarFontScaleState((s) => {
+      const next = clampScale(s, delta)
+      onPrefsUpdate({ myanmarFontScale: next })
+      return next
+    }),
     [],
   )
   const scaleNote = useCallback(
-    (delta: -1 | 1) => setNoteFontScaleState((s) => clampScale(s, delta)),
+    (delta: -1 | 1) => setNoteFontScaleState((s) => {
+      const next = clampScale(s, delta)
+      onPrefsUpdate({ noteFontScale: next })
+      return next
+    }),
     [],
   )
 
@@ -298,6 +356,8 @@ export function useSurah(
     getCurrentRow,
     getArabicText,
     getNotesForPage,
+    getArabicTextAt,
+    getNotesAt,
   }
 
   return [state, actions]

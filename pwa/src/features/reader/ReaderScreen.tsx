@@ -3,11 +3,17 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import type { AppPrefs, AppTheme } from '../../data/types.ts'
 import { useSurah } from '../../hooks/useSurah.ts'
+import { useAudio } from '../../hooks/useAudio.ts'
+import { useAudioDownload } from '../../hooks/useAudioDownload.ts'
+import type { SurahDownloadJob } from '../../data/audioDownload.ts'
 import { NavDrawer } from '../nav-drawer/NavDrawer.tsx'
 import { SelectThemeDialog } from '../dialog-select-theme/SelectThemeDialog.tsx'
 import { AboutDialog } from '../dialog-about/AboutDialog.tsx'
 import { SelectSurahsToDownloadDialog } from '../audio-download/SelectSurahsToDownloadDialog.tsx'
+import { DownloadProgressDialog } from '../download-progress/DownloadProgressDialog.tsx'
 import { SelectAudioToDeleteDialog } from '../audio-delete/SelectAudioToDeleteDialog.tsx'
+import { SelectSurahDialog } from '../dialog-select-surah/SelectSurahDialog.tsx'
+import { JumpToAyatDialog } from '../dialog-jump-to-ayat/JumpToAyatDialog.tsx'
 import { TopBar } from './TopBar.tsx'
 import { AyatPage } from './AyatPage.tsx'
 import styles from './ReaderScreen.module.css'
@@ -115,6 +121,8 @@ export function ReaderScreen({ prefs, onPrefsUpdate }: Props) {
         setPhase('idle')
         return
       }
+      // A manual swipe cancels audio auto-tracking (MainActivity.kt:383)
+      audioActionsRef.current.disableAutoTracking()
       if (currentDragOffset < -threshold) {
         setPhase('snapping-next')
       } else if (currentDragOffset > threshold) {
@@ -151,15 +159,66 @@ export function ReaderScreen({ prefs, onPrefsUpdate }: Props) {
   const handleMenuClick = useCallback(() => setDrawerOpen(true), [])
   const handleDrawerClose = useCallback(() => setDrawerOpen(false), [])
 
-  // Stub handlers for audio (feature not yet implemented)
-  const handleToggleAudio = useCallback(() => {}, [])
-  const handleToggleAutoTracking = useCallback(() => {}, [])
-  const handlePlayAyat = useCallback(() => {}, [])
-  const handlePlaySurahFromHere = useCallback(() => {}, [])
+  const handleAutoTrack = useCallback(
+    (surah: number, ayat: number) => { actions.goTo(surah, ayat, false) },
+    [actions],
+  )
 
-  // Stub handlers for unbuilt dialogs
-  const handleSurahChipClick = useCallback(() => {}, [])
-  const handleAyatChipClick = useCallback(() => {}, [])
+  const [audioState, audioActions] = useAudio({
+    surahId,
+    currentAyatId,
+    totalAyats,
+    onAutoTrack: handleAutoTrack,
+  })
+
+  // handleTouchEnd is defined above audioActions; reach it through a ref.
+  const audioActionsRef = useRef(audioActions)
+  audioActionsRef.current = audioActions
+
+  const handleToggleAudio = useCallback(() => { audioActions.togglePlay() }, [audioActions])
+  const handleToggleAutoTracking = useCallback(() => { audioActions.toggleAutoTracking() }, [audioActions])
+  const handlePlayAyat = useCallback(
+    () => { audioActions.playAyat(surahId, currentAyatId) },
+    [audioActions, surahId, currentAyatId],
+  )
+  const handlePlaySurahFromHere = useCallback(
+    () => { audioActions.playSurahFrom(surahId, currentAyatId) },
+    [audioActions, surahId, currentAyatId],
+  )
+
+  const [selectSurahOpen, setSelectSurahOpen] = useState(false)
+  const handleSurahChipClick = useCallback(() => setSelectSurahOpen(true), [])
+  const handleSelectSurahClose = useCallback(() => setSelectSurahOpen(false), [])
+
+  // null = use current surahId; set to a specific id when coming from SelectSurahDialog
+  const [jumpToAyatSurahId, setJumpToAyatSurahId] = useState<number | null>(null)
+  const [jumpToAyatOpen, setJumpToAyatOpen] = useState(false)
+
+  const handleAyatChipClick = useCallback(() => {
+    setJumpToAyatSurahId(null)
+    setJumpToAyatOpen(true)
+  }, [])
+
+  const handleSurahSelected = useCallback((selectedSurahId: number) => {
+    setSelectSurahOpen(false)
+    setJumpToAyatSurahId(selectedSurahId)
+    setJumpToAyatOpen(true)
+  }, [])
+
+  const handleJumpToAyatGo = useCallback(
+    (ayatId: number) => {
+      const targetSurah = jumpToAyatSurahId ?? surahId
+      actions.goTo(targetSurah, ayatId, true)
+      setJumpToAyatOpen(false)
+      setJumpToAyatSurahId(null)
+    },
+    [jumpToAyatSurahId, surahId, actions],
+  )
+
+  const handleJumpToAyatClose = useCallback(() => {
+    setJumpToAyatOpen(false)
+    setJumpToAyatSurahId(null)
+  }, [])
 
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(
     () => new URLSearchParams(window.location.search).get('dialog') === 'delete',
@@ -178,9 +237,20 @@ export function ReaderScreen({ prefs, onPrefsUpdate }: Props) {
     setDownloadDialogOpen(true)
   }, [])
   const handleDownloadDialogClose = useCallback(() => setDownloadDialogOpen(false), [])
-  const handleDownload = useCallback((_selected: Set<number>) => {
-    // Audio download not yet implemented — pending HTTPS mirror URL
-  }, [])
+
+  // Tapping "Download Selected" dismisses the picker and opens the progress modal,
+  // which shares one download session with the picker (MainActivity.kt:966).
+  const download = useAudioDownload()
+  const [progressOpen, setProgressOpen] = useState(false)
+  const handleStartDownload = useCallback(
+    async (jobs: SurahDownloadJob[]) => {
+      setDownloadDialogOpen(false)
+      setProgressOpen(true)
+      await download.start(jobs)
+      setProgressOpen(false)
+    },
+    [download],
+  )
 
   const [aboutDialogOpen, setAboutDialogOpen] = useState(
     () => new URLSearchParams(window.location.search).get('dialog') === 'about',
@@ -246,11 +316,44 @@ export function ReaderScreen({ prefs, onPrefsUpdate }: Props) {
       )}
       {aboutDialogOpen && <AboutDialog onClose={handleAboutClose} />}
       {downloadDialogOpen && (
-        <SelectSurahsToDownloadDialog onDownload={handleDownload} onClose={handleDownloadDialogClose} />
+        <SelectSurahsToDownloadDialog
+          downloadedCounts={download.downloadedCounts}
+          onStart={handleStartDownload}
+          onClose={handleDownloadDialogClose}
+        />
+      )}
+      {progressOpen && (
+        <DownloadProgressDialog
+          progress={download.progress}
+          paused={download.paused}
+          onTogglePause={download.togglePause}
+          onStop={download.stop}
+        />
       )}
       {deleteDialogOpen && (
         <SelectAudioToDeleteDialog onClose={handleDeleteDialogClose} />
       )}
+      {selectSurahOpen && (
+        <SelectSurahDialog
+          surahs={state.surahs}
+          currentSurahId={surahId}
+          onSelect={handleSurahSelected}
+          onClose={handleSelectSurahClose}
+        />
+      )}
+      {jumpToAyatOpen && (() => {
+        const targetId = jumpToAyatSurahId ?? surahId
+        const targetSurah = state.surahs.find((s) => s.number === targetId)
+        return (
+          <JumpToAyatDialog
+            surahId={targetId}
+            totalAyats={targetSurah?.numberOfAyahs ?? totalAyats}
+            surahName={targetSurah?.englishName ?? ''}
+            onGo={handleJumpToAyatGo}
+            onClose={handleJumpToAyatClose}
+          />
+        )
+      })()}
       <TopBar
         surahId={surahId}
         pageIndex={pageIndex}
@@ -259,9 +362,9 @@ export function ReaderScreen({ prefs, onPrefsUpdate }: Props) {
         totalAyats={totalAyats}
         surah={surah}
         jumpHistory={jumpHistory}
-        audioPlaying={false}
-        autoTracking={false}
-        audioAvailable={false}
+        audioPlaying={audioState.playing}
+        autoTracking={audioState.autoTracking}
+        audioAvailable={true}
         onMenuClick={handleMenuClick}
         onPrevSurah={actions.prevSurah}
         onNextSurah={actions.nextSurah}
@@ -298,10 +401,10 @@ export function ReaderScreen({ prefs, onPrefsUpdate }: Props) {
                 arabicFontScale={arabicFontScale}
                 myanmarFontScale={myanmarFontScale}
                 noteFontScale={noteFontScale}
-                audioPlaying={false}
-                audioLoaded={false}
-                onPlayAyat={handlePlayAyat}
-                onPlaySurahFromHere={handlePlaySurahFromHere}
+                audioPlaying={audioActions.isPlayingAyat(surahId, prevRow.ayatId)}
+                audioLoaded={true}
+                onPlayAyat={() => audioActions.playAyat(surahId, prevRow.ayatId)}
+                onPlaySurahFromHere={() => audioActions.playSurahFrom(surahId, prevRow.ayatId)}
                 onScaleArabic={actions.scaleArabic}
                 onScaleMyanmar={actions.scaleMyanmar}
                 onScaleNote={actions.scaleNote}
@@ -323,8 +426,8 @@ export function ReaderScreen({ prefs, onPrefsUpdate }: Props) {
                 arabicFontScale={arabicFontScale}
                 myanmarFontScale={myanmarFontScale}
                 noteFontScale={noteFontScale}
-                audioPlaying={false}
-                audioLoaded={false}
+                audioPlaying={audioActions.isPlayingAyat(surahId, currentAyatId)}
+                audioLoaded={true}
                 onPlayAyat={handlePlayAyat}
                 onPlaySurahFromHere={handlePlaySurahFromHere}
                 onScaleArabic={actions.scaleArabic}
@@ -346,10 +449,10 @@ export function ReaderScreen({ prefs, onPrefsUpdate }: Props) {
                 arabicFontScale={arabicFontScale}
                 myanmarFontScale={myanmarFontScale}
                 noteFontScale={noteFontScale}
-                audioPlaying={false}
-                audioLoaded={false}
-                onPlayAyat={handlePlayAyat}
-                onPlaySurahFromHere={handlePlaySurahFromHere}
+                audioPlaying={audioActions.isPlayingAyat(surahId, nextRow.ayatId)}
+                audioLoaded={true}
+                onPlayAyat={() => audioActions.playAyat(surahId, nextRow.ayatId)}
+                onPlaySurahFromHere={() => audioActions.playSurahFrom(surahId, nextRow.ayatId)}
                 onScaleArabic={actions.scaleArabic}
                 onScaleMyanmar={actions.scaleMyanmar}
                 onScaleNote={actions.scaleNote}
