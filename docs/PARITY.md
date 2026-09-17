@@ -25,14 +25,14 @@ One row per screen, notable state, or feature. Status: `todo` · `in-progress` �
 | Reader — empty Tafsir notes | state | 12.png | `/` | todo | "No Explanation Notes (Tafsir) for this Ayat." placeholder |
 | Feature: Swipe paging (L/R between ayats) | feature | — | `/` | todo | HorizontalPager; core reading nav |
 | Reader — history icon active | state | — | `/` | todo | History button tinted primary when jumps exist (needs capture) |
-| Nav drawer | drawer | 02.png | overlay | todo | 320 dp; Audio / App Settings / Translator's Info + Developer/About/Exit |
-| Info viewer — Preface | screen | 04.png | `/info/preface` | todo | WebView → inline HTML |
-| Info viewer — Introduction | screen | 05.png | `/info/introduction` | todo | |
-| Info viewer — Biography | screen | 06.png | `/info/biography` | todo | |
-| Info viewer — Developer | screen | 07.png | `/info/developer` | todo | |
+| Nav drawer | drawer | 02.png | overlay | done | 320 dp; Audio / App Settings / Translator's Info + Developer/About/Exit; switches toggle prefs; switch track = green (Material default); Chrome baseline 02-chrome.png; status bar in raw adb screenshots = 100px (38dp at 420dpi) |
+| Info viewer — Preface | screen | 04.png | `/info/preface` | done | WebView → inline HTML; Chrome baseline 04-chrome.png; visual 0.00% PASS |
+| Info viewer — Introduction | screen | 05.png | `/info/introduction` | done | Chrome baseline 05-chrome.png; visual 0.00% PASS |
+| Info viewer — Biography | screen | 06.png | `/info/biography` | done | Chrome baseline 06-chrome.png; visual 0.00% PASS |
+| Info viewer — Developer | screen | 07.png | `/info/developer` | done | Chrome baseline 07-chrome.png; visual 0.00% PASS |
 | Dialog: Select Surah | dialog | — | overlay | todo | List all surahs → opens Jump to Ayat (needs capture) |
 | Dialog: Jump to Ayat | dialog | — | overlay | todo | Number input, validates 1..total (needs capture) |
-| Dialog: Select App Theme | dialog | 03.png | overlay | todo | Blue / Green / Pink / Brown |
+| Dialog: Select App Theme | dialog | 03.png | overlay | done | Blue / Green / Pink / Brown; Chrome baseline 13-chrome.png; visual check PASS 0.00% |
 | Dialog: Select Surahs to Download | dialog | 09.png | overlay | todo | Pending HTTPS mirror URL + MP3 archive |
 | Dialog: Download progress | dialog | — | overlay | todo | Dual progress bars, ETA, pause/stop (needs capture) |
 | Dialog: Select Audio to Delete | dialog | 10.png (Pink) | overlay | todo | Cache API entries, not device files |
@@ -40,7 +40,7 @@ One row per screen, notable state, or feature. Status: `todo` · `in-progress` �
 | Dialog: Jump History | dialog | — | overlay | todo | Shown when >2 saved positions (needs capture) |
 | Dialog: About App | dialog | 08.png | overlay | todo | Version + copyright |
 | Dialog: Update Available | dialog | — | overlay | n/a | DROPPED — Android APK updater, not for PWA |
-| Feature: Theme system (4) | feature | 03.png | — | todo | `app_theme` pref |
+| Feature: Theme system (4) | feature | 03.png | — | done | `app_theme` pref; SelectThemeDialog wired to onPrefsUpdate |
 | Feature: Font scaling A-/A+ | feature | 01.png | — | todo | 3 independent scales, not persisted |
 | Feature: Footnote markers + jump links | feature | 01.png | — | todo | pink superscripts + `[surah:ayat]` links |
 | Feature: Last-read position | feature | — | — | todo | `remember_last_read` pref |
