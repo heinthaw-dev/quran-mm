@@ -48,6 +48,9 @@ export interface AppPrefs {
   lastAyat: number
   rememberLastRead: boolean
   continuousSwiping: boolean
+  arabicFontScale: FontScale
+  myanmarFontScale: FontScale
+  noteFontScale: FontScale
 }
 
 export const DEFAULT_PREFS: AppPrefs = {
@@ -55,5 +58,8 @@ export const DEFAULT_PREFS: AppPrefs = {
   lastSurah: 1,
   lastAyat: 1,
   rememberLastRead: true,
-  continuousSwiping: false,
+  continuousSwiping: true,
+  arabicFontScale: 1.0,
+  myanmarFontScale: 1.0,
+  noteFontScale: 1.0,
 }
