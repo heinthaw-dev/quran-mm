@@ -1,0 +1,106 @@
+.dialog {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  margin: 0;
+  border: none;
+  border-radius: 4px;
+  padding: 0;
+  min-width: 300px;
+  max-width: calc(100vw - 48px);
+  background: var(--color-bg);
+  box-shadow: 0 11px 15px rgba(0, 0, 0, 0.2), 0 9px 46px rgba(0, 0, 0, 0.12), 0 24px 38px rgba(0, 0, 0, 0.14);
+}
+
+.dialog::backdrop {
+  background: rgba(0, 0, 0, 0.32);
+}
+
+.title {
+  margin: 0;
+  padding: 14px 24px 4px;
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--color-primary);
+  font-family: var(--font-ui);
+}
+
+.subtitle {
+  margin: 0;
+  padding: 0 24px 12px;
+  font-size: 0.875rem;
+  color: #757575;
+  font-family: var(--font-ui);
+}
+
+.inputWrap {
+  padding: 4px 24px 16px;
+}
+
+.input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 12px 14px;
+  border: 1.5px solid rgba(0, 0, 0, 0.38);
+  border-radius: 4px;
+  font-size: 1rem;
+  font-family: var(--font-ui);
+  background: transparent;
+  color: inherit;
+  outline: none;
+}
+
+.input:focus {
+  border-color: var(--color-primary);
+  border-width: 2px;
+}
+
+.inputInvalid {
+  border-color: #B00020;
+  border-width: 2px;
+}
+
+/* Remove spinner arrows from number input */
+.input::-webkit-inner-spin-button,
+.input::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+.input[type='number'] {
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+
+.footer {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px 16px;
+}
+
+.cancelBtn {
+  background: none;
+  border: none;
+  padding: 8px 8px;
+  color: var(--color-primary);
+  font-size: 0.875rem;
+  font-weight: 500;
+  font-family: var(--font-ui);
+  letter-spacing: 0.04em;
+  cursor: pointer;
+}
+
+.goBtn {
+  padding: 10px 24px;
+  border: none;
+  border-radius: 20px;
+  background: var(--color-primary);
+  color: #fff;
+  font-size: 0.875rem;
+  font-weight: 500;
+  font-family: var(--font-ui);
+  letter-spacing: 0.04em;
+  cursor: pointer;
+}
