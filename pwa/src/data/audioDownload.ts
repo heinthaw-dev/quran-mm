@@ -34,11 +34,12 @@ async function waitWhilePaused(isPaused: () => boolean, signal: AbortSignal): Pr
 }
 
 // ETA = remaining / overall-average-rate, total-elapsed based (MainActivity.kt:535).
-function computeEta(totalMissing: number, downloadedCount: number, startTime: number): number | null {
+// Uses processedCount (attempts) not just successful downloads so ETA shows even when some fetches fail.
+function computeEta(totalMissing: number, processedCount: number, startTime: number): number | null {
   const elapsedSec = (Date.now() - startTime) / 1000
-  if (elapsedSec > 2 && downloadedCount > 0) {
-    const rate = downloadedCount / elapsedSec
-    return Math.floor((totalMissing - downloadedCount) / rate)
+  if (elapsedSec > 2 && processedCount > 0) {
+    const rate = processedCount / elapsedSec
+    return Math.floor((totalMissing - processedCount) / rate)
   }
   return null
 }
@@ -66,7 +67,7 @@ export async function downloadSurahsAudio(
   }
 
   const startTime = Date.now()
-  let downloadedCount = 0
+  let processedCount = 0
 
   for (let i = 0; i < surahs.length; i++) {
     const s = surahs[i]!
@@ -83,7 +84,7 @@ export async function downloadSurahsAudio(
       currentSurahId: s.number,
       ayatDone: alreadyDownloaded,
       ayatTotal: s.numberOfAyahs,
-      etaSeconds: computeEta(totalMissing, downloadedCount, startTime),
+      etaSeconds: computeEta(totalMissing, processedCount, startTime),
     })
 
     for (let idx = 0; idx < missing.length; idx++) {
@@ -95,12 +96,12 @@ export async function downloadSurahsAudio(
         const res = await fetch(url, { signal })
         if (res.ok) {
           await cache.put(url, res)
-          downloadedCount++
         }
       } catch (e) {
         // Abort (Stop) propagates; a single failed ayat is skipped, like native.
         if (e instanceof DOMException && e.name === 'AbortError') throw e
       }
+      processedCount++
 
       onProgress({
         surahIndex: i + 1,
@@ -108,7 +109,7 @@ export async function downloadSurahsAudio(
         currentSurahId: s.number,
         ayatDone: alreadyDownloaded + idx + 1,
         ayatTotal: s.numberOfAyahs,
-        etaSeconds: computeEta(totalMissing, downloadedCount, startTime),
+        etaSeconds: computeEta(totalMissing, processedCount, startTime),
       })
     }
   }
