@@ -3,29 +3,33 @@ import { defineConfig } from 'vite'
 import { VitePWA } from 'vite-plugin-pwa'
 
 export default defineConfig({
+  server: {
+    allowedHosts: true,
+  },
+  // preview serves the built app (with the service worker) — tunnel THIS for offline
+  preview: {
+    allowedHosts: true,
+  },
   plugins: [
     react(),
     VitePWA({
       registerType: 'autoUpdate',
       workbox: {
         maximumFileSizeToCacheInBytes: 4 * 1024 * 1024, // 4 MiB
-        globPatterns: ['**/*.{js,css,html,woff2,png,svg,ico}'],
-        // CSVs are large (~9.6 MB total) — precache only surah index files
-        // per-surah CSVs load on demand via runtime caching
+        // Precache the whole dataset (~9.6 MB CSV) so every surah works offline
+        // without being visited first, matching the native app's bundled assets.
+        globPatterns: ['**/*.{js,css,html,woff2,png,svg,ico,csv}'],
         runtimeCaching: [
           {
-            urlPattern: /\/data\/.*\.csv$/,
+            // Audio is downloaded on demand into the 'quran-audio' cache (see
+            // data/audioDownload.ts). Serve it from there; rangeRequests lets
+            // the <audio> element's byte-range requests hit the cached file.
+            urlPattern: /\/audio\/.*\.mp3$/,
             handler: 'CacheFirst',
             options: {
-              cacheName: 'csv-data',
-              expiration: { maxEntries: 300 },
-            },
-          },
-          {
-            urlPattern: /\/data\/.*\.html$/,
-            handler: 'CacheFirst',
-            options: {
-              cacheName: 'html-pages',
+              cacheName: 'quran-audio',
+              rangeRequests: true,
+              cacheableResponse: { statuses: [200] },
             },
           },
         ],
