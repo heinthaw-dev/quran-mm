@@ -21,10 +21,15 @@ export default defineConfig({
         globPatterns: ['**/*.{js,css,html,woff2,png,svg,ico,csv}'],
         runtimeCaching: [
           {
-            // Audio is downloaded on demand into the 'quran-audio' cache (see
-            // data/audioDownload.ts). Serve it from there; rangeRequests lets
-            // the <audio> element's byte-range requests hit the cached file.
-            urlPattern: /\/audio\/.*\.mp3$/,
+            // Serve <audio> playback from the 'quran-audio' cache that
+            // data/audioDownload.ts populates; rangeRequests lets the
+            // element's byte-range requests hit the cached file.
+            // Match only media-element requests (destination 'audio') so the
+            // download's own cors fetch() bypasses the SW and reaches the
+            // network directly — otherwise CacheFirst hijacks it and the
+            // cross-origin (tunnel) response fails CORS.
+            urlPattern: ({ request, url }) =>
+              request.destination === 'audio' && /\/audio\/.*\.mp3$/.test(url.pathname),
             handler: 'CacheFirst',
             options: {
               cacheName: 'quran-audio',
