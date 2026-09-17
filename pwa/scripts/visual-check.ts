@@ -36,7 +36,7 @@ const SCREEN_SCREENSHOT_MAP: Record<string, string> = {
   'info-viewer-introduction': '05-chrome.png',
   'info-viewer-biography': '06-chrome.png',
   'info-viewer-developer': '07-chrome.png',
-  'dialog-about': '08-chrome.png',
+  'dialog-about': 'dialog-about-chrome.png',
   'audio-download': '09-chrome.png',
   'audio-delete': 'audio-delete-chrome.png',
 }
@@ -167,8 +167,9 @@ async function run() {
   const DIALOG_BOX: Partial<Record<string, { x1: number; y1: number; x2: number; y2: number }>> = {
     'dialog-about': {
       // Chrome baseline: dialog centered at viewport-height/2 px, crop = CHROME_TOP_CROP_PX (3px)
-      x1: Math.round((w - 280 * SCALE) / 2) + 20,
-      x2: Math.round((w + 280 * SCALE) / 2) - 20,
+      // Card is 320dp wide (measured on 08.png), not 280dp.
+      x1: Math.round((w - 320 * SCALE) / 2) + 20,
+      x2: Math.round((w + 320 * SCALE) / 2) - 20,
       y1: Math.round(2340 / 2 - CHROME_TOP_CROP_PX) - 620,
       y2: Math.round(2340 / 2 - CHROME_TOP_CROP_PX) + 620,
     },

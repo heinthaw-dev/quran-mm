@@ -1,3 +1,5 @@
+/* Material3 AlertDialog geometry, 1 dp = 1 px at the visual-check viewport.
+   Measured off App Screenshots/08.png: card 320x~464 dp, 24 dp content inset. */
 .dialog {
   position: fixed;
   top: 50%;
@@ -5,87 +7,113 @@
   transform: translate(-50%, -50%);
   margin: 0;
   border: none;
+  /* RoundedCornerShape(16.dp) */
   border-radius: 16px;
-  padding: 0;
-  min-width: 280px;
+  /* DialogPadding = 24.dp on every side */
+  padding: 24px;
+  /* Android platform default dialog width */
+  width: 320px;
   max-width: calc(100vw - 48px);
   background: var(--color-white);
   box-shadow: 0 11px 15px rgba(0, 0, 0, 0.2), 0 9px 46px rgba(0, 0, 0, 0.12), 0 24px 38px rgba(0, 0, 0, 0.14);
+}
+
+/* The dialog takes focus on open (see AboutDialog.tsx); it is a container, so
+   no ring. Keyboard users still get the Close button's :focus-visible ring. */
+.dialog:focus {
+  outline: none;
 }
 
 .dialog::backdrop {
   background: rgba(0, 0, 0, 0.32);
 }
 
+/* headlineSmall (24 sp / 32 sp), Bold, theme.primary; TitlePadding bottom = 16 dp */
 .title {
-  margin: 0;
-  padding: 14px 24px;
-  font-size: 1.25rem;
+  margin: 0 0 16px;
+  font-family: var(--font-ui);
+  font-size: var(--fs-dialog-title);
+  line-height: var(--lh-dialog-title);
   font-weight: 700;
   color: var(--color-primary);
-  font-family: var(--font-ui);
 }
 
-/* edge-to-edge divider at dialog width */
+/* Column(verticalArrangement = Arrangement.spacedBy(8.dp)); TextPadding bottom = 18 dp */
+.content {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-bottom: 18px;
+}
+
+/* bodyMedium (14 sp / 20 sp) on onSurfaceVariant — the AlertDialog text default */
+.version,
+.sectionHeader,
+.sectionText {
+  margin: 0;
+  font-family: var(--font-ui);
+  font-size: var(--fs-dialog-body);
+  line-height: var(--lh-dialog-body);
+  color: var(--color-dialog-text);
+}
+
+.version {
+  font-weight: 500;
+}
+
+.sectionHeader {
+  font-weight: 700;
+}
+
+.sectionText {
+  font-weight: 400;
+}
+
+/* theme.primary at 20% alpha over the white container */
 .divider {
   margin: 0;
   border: none;
   border-top: 1px solid color-mix(in srgb, var(--color-primary) 20%, transparent);
 }
 
-/* padded content section */
-.section {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  padding: 8px 24px;
+/* Spacer(8.dp) sits between two 8 dp arrangement gaps = 24 dp total.
+   .content already contributes 8 dp, so add the remaining 16 dp. */
+.sectionGap {
+  margin-top: 16px;
 }
 
-.version {
-  margin: 0;
-  font-size: var(--fs-body);
-  font-family: var(--font-ui);
-  color: var(--color-text-body);
-}
-
-.sectionHeader {
-  margin: 0;
-  font-size: var(--fs-body);
-  font-weight: 700;
-  font-family: var(--font-ui);
-  color: var(--color-text-body);
-}
-
-.sectionText {
-  margin: 0;
-  font-size: var(--fs-body);
-  font-family: var(--font-ui);
-  color: var(--color-text-body);
-  line-height: var(--lh-body);
-}
-
+/* 12 sp / 16 sp, Color.Gray. Spacer(12.dp) between two 8 dp arrangement gaps
+   = 28 dp total; .content already contributes 8 dp, so add 20 dp. */
 .disclaimer {
-  margin: 0;
-  font-size: 0.75rem;
+  margin: 20px 0 0;
   font-family: var(--font-ui);
-  color: #757575;
-  line-height: 1rem;
+  font-size: var(--fs-dialog-caption);
+  line-height: var(--lh-dialog-caption);
+  font-weight: 400;
+  color: var(--color-dialog-muted);
 }
 
+/* M3 button row: single confirm button, right-aligned. The 12 px sits on top of
+   .content's 18 px TextPadding — measured off 08.png as the gap M3 leaves
+   between the text slot and the button row. */
 .footer {
   display: flex;
   justify-content: flex-end;
-  padding: 8px 8px;
+  margin-top: 12px;
 }
 
+/* TextButton: 40 dp min height, 12 dp horizontal content padding, labelLarge */
 .closeBtn {
+  min-height: 40px;
+  padding: 8px 12px;
   background: none;
   border: none;
-  padding: 8px 8px;
-  color: var(--color-primary);
-  font-size: 0.875rem;
-  font-weight: 500;
+  border-radius: 20px;
   font-family: var(--font-ui);
-  letter-spacing: 0.04em;
+  font-size: var(--fs-dialog-body);
+  line-height: var(--lh-dialog-body);
+  font-weight: 500;
+  letter-spacing: 0.0071em;
+  color: var(--color-primary);
   cursor: pointer;
 }

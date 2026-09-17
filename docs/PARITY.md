@@ -38,7 +38,7 @@ One row per screen, notable state, or feature. Status: `todo` · `in-progress` �
 | Dialog: Select Audio to Delete | dialog | 10.png | overlay | done | Cache API entries, not device files; title/freed-size hardcoded #D81B60; Chrome baseline audio-delete-chrome.png; visual 0.00% PASS |
 | Dialog: Delete progress | dialog | — | overlay | todo | Single progress bar (needs capture) |
 | Dialog: Jump History | dialog | — | overlay | todo | Shown when >2 saved positions (needs capture) |
-| Dialog: About App | dialog | 08.png | overlay | done | Chrome baseline 08-chrome.png; visual 0.00% PASS |
+| Dialog: About App | dialog | 08.png | overlay | done | Rebuilt to the measured Android values: card 320dp/16dp radius, title 24sp, body 14sp/20sp on #49454F, disclaimer 12sp/16sp #888888, **one** divider (was four), 24dp + 28dp section gaps. Baseline renamed dialog-about-chrome.png (08-chrome.png is the stale pre-fix one); visual 0.00% PASS. Every band within 1dp of 08.png except the title (3.4dp high) — Roboto not self-hosted yet |
 | Dialog: Update Available | dialog | — | overlay | n/a | DROPPED — Android APK updater, not for PWA |
 | Feature: Theme system (4) | feature | 03.png | — | done | `app_theme` pref; SelectThemeDialog wired to onPrefsUpdate |
 | Feature: Font scaling A-/A+ | feature | 01.png | — | done | 3 independent scales in AppPrefs; persisted to localStorage on each tap |

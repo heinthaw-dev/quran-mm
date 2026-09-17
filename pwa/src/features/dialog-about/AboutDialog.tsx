@@ -1,4 +1,4 @@
-// Ports: AboutDialog (Compose AlertDialog in app/AboutDialog.kt)
+// Ports: AboutDialog (Compose AlertDialog in app/AboutDialog.kt:27)
 import { useEffect, useRef } from 'react'
 import styles from './AboutDialog.module.css'
 
@@ -11,6 +11,8 @@ export function AboutDialog({ onClose }: Props) {
 
   useEffect(() => {
     ref.current?.showModal()
+    // showModal() would otherwise focus Close and paint a ring the native dialog has no equivalent for
+    ref.current?.focus()
   }, [])
 
   function handleBackdropClick(e: React.MouseEvent<HTMLDialogElement>) {
@@ -18,28 +20,26 @@ export function AboutDialog({ onClose }: Props) {
   }
 
   return (
-    <dialog ref={ref} className={styles.dialog} onClick={handleBackdropClick} onClose={onClose}>
+    <dialog
+      ref={ref}
+      className={styles.dialog}
+      onClick={handleBackdropClick}
+      onClose={onClose}
+      tabIndex={-1}
+    >
       <p className={styles.title}>About App</p>
-      <hr className={styles.divider} />
-      <div className={styles.section}>
+      {/* Column(verticalArrangement = spacedBy(8.dp)) — one divider only, after the version */}
+      <div className={styles.content}>
         <p className={styles.version}>Version: V 1.0.0</p>
-      </div>
-      <hr className={styles.divider} />
-      <div className={styles.section}>
+        <hr className={styles.divider} />
         <p className={styles.sectionHeader}>App &amp; Software Design:</p>
         <p className={styles.sectionText}>
           Copyright © 2026 noon Software Development Team. All rights reserved.
         </p>
-      </div>
-      <hr className={styles.divider} />
-      <div className={styles.section}>
-        <p className={styles.sectionHeader}>Myanmar Translation &amp; Tafsir:</p>
-        <p className={styles.sectionText}>
-          Copyright © 2026 U Kyaw Win. All rights reserved.
-        </p>
-      </div>
-      <hr className={styles.divider} />
-      <div className={styles.section}>
+        {/* Spacer(8.dp) between the two 8dp arrangement gaps = 24dp total */}
+        <p className={`${styles.sectionHeader} ${styles.sectionGap}`}>Myanmar Translation &amp; Tafsir:</p>
+        <p className={styles.sectionText}>Copyright © 2026 U Kyaw Win. All rights reserved.</p>
+        {/* Spacer(12.dp) between the two 8dp arrangement gaps = 28dp total */}
         <p className={styles.disclaimer}>
           No part of this software may be reproduced, distributed, or transmitted in any form
           without the prior written permission of the respective copyright holders.
