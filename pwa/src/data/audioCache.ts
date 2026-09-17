@@ -1,3 +1,5 @@
+import { AUDIO_FETCH_HEADERS } from './config.ts'
+
 export const AUDIO_CACHE_NAME = 'quran-audio'
 
 // URL pattern: /audio/001/001001.mp3
@@ -74,4 +76,20 @@ export async function deleteAudioCache(surahNumbers: number[]): Promise<void> {
   } catch {
     // Cache unavailable — nothing to delete
   }
+}
+
+// Playback goes through fetch(), never `el.src = <remote url>`: a media element
+// cannot carry AUDIO_FETCH_HEADERS, so a host that screens browser requests
+// answers it with HTML the element cannot decode. Downloaded ayats come from
+// Cache Storage (offline); anything else streams from the host and is NOT
+// cached, so the Delete Audio list keeps meaning "downloaded", like native.
+export async function getAudioObjectUrl(url: string): Promise<string> {
+  let res: Response | undefined
+  if ('caches' in window) {
+    const cache = await caches.open(AUDIO_CACHE_NAME)
+    res = await cache.match(url)
+  }
+  if (!res) res = await fetch(url, { headers: AUDIO_FETCH_HEADERS })
+  if (!res.ok) throw new Error(`Audio unavailable (${res.status})`)
+  return URL.createObjectURL(await res.blob())
 }

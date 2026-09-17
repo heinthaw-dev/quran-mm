@@ -3,6 +3,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 
 // Synchronous ref update pattern — avoids stale closure in onended handler
 import { audioUrl } from '../data/config.ts'
+import { getAudioObjectUrl } from '../data/audioCache.ts'
 
 interface UseAudioOptions {
   surahId: number
@@ -50,10 +51,32 @@ export function useAudio({
   const autoTrackingRef = useRef(false)
   const totalAyatsRef = useRef(totalAyats)
   const onAutoTrackRef = useRef(onAutoTrack)
+  // The blob URL currently assigned to the element, revoked when replaced.
+  const objectUrlRef = useRef<string | null>(null)
+  // Bumped per load so a stale fetch can't overwrite a newer one's src.
+  const loadGenRef = useRef(0)
 
   totalAyatsRef.current = totalAyats
   onAutoTrackRef.current = onAutoTrack
   autoTrackingRef.current = autoTracking
+
+  // Fetch the ayat (cache first), swap the element's src to a blob URL, play.
+  const loadAndPlay = useCallback(async (el: HTMLAudioElement, surah: number, ayat: number) => {
+    const gen = ++loadGenRef.current
+    try {
+      const objectUrl = await getAudioObjectUrl(audioUrl(surah, ayat))
+      if (gen !== loadGenRef.current) {
+        URL.revokeObjectURL(objectUrl)
+        return
+      }
+      if (objectUrlRef.current) URL.revokeObjectURL(objectUrlRef.current)
+      objectUrlRef.current = objectUrl
+      el.src = objectUrl
+      await el.play()
+    } catch {
+      if (gen === loadGenRef.current) setPlaying(false)
+    }
+  }, [])
 
   function getAudio() {
     if (!audioEl.current) {
@@ -76,8 +99,7 @@ export function useAudio({
         if (autoTrackingRef.current) {
           onAutoTrackRef.current(s, nextAyat)
         }
-        el.src = audioUrl(s, nextAyat)
-        el.play().catch(() => { setPlaying(false) })
+        void loadAndPlay(el, s, nextAyat)
       }
       audioEl.current = el
     }
@@ -87,7 +109,6 @@ export function useAudio({
   const startPlayback = useCallback((surah: number, ayat: number, surahMode: boolean) => {
     const el = getAudio()
     el.pause()
-    el.src = audioUrl(surah, ayat)
 
     activeSurahRef.current = surah
     activeAyatRef.current = ayat
@@ -98,8 +119,8 @@ export function useAudio({
     setIsSurahMode(surahMode)
     setPlaying(true)
 
-    el.play().catch(() => { setPlaying(false) })
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+    void loadAndPlay(el, surah, ayat)
+  }, [loadAndPlay]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const playAyat = useCallback((surah: number, ayat: number) => {
     startPlayback(surah, ayat, false)
@@ -164,7 +185,10 @@ export function useAudio({
   }, [surahId])
 
   // Cleanup on unmount
-  useEffect(() => () => { audioEl.current?.pause() }, [])
+  useEffect(() => () => {
+    audioEl.current?.pause()
+    if (objectUrlRef.current) URL.revokeObjectURL(objectUrlRef.current)
+  }, [])
 
   const state: AudioState = { playing, activeSurah, activeAyat, isSurahMode, autoTracking }
   const actions: AudioActions = { playAyat, playSurahFrom, togglePlay, toggleAutoTracking, disableAutoTracking, isPlayingAyat }
