@@ -58,7 +58,7 @@ Per-ayah MP3, original source `http://38.247.64.94/uploads/Quran_32kbps/<sss>/<s
 ## Device (for visual check)
 `App Screenshots/01.png`–`12.png` are **raw `adb` captures, 1080×2340 px** (no frame/captions). Device: **`wm size` = 1080×2340, `wm density` = 420 dpi** → scale = 420/160 = **2.625**.
 - Playwright: **viewport 411×891** (1080/2.625, 2340/2.625, rounded), **`deviceScaleFactor` = 2.625**.
-- Crop the top status bar + bottom gesture bar; compare app content only (record bar heights when first measured).
+- Crop top: **100px (38dp)** — pixel scan of 02.png shows app content starts at y=100. Bottom gesture bar: 0px (none in captures).
 - Missing raw captures: Select Surah, Jump to Ayat, Jump History dialogs, download/delete progress.
 
 ### Screenshot map
