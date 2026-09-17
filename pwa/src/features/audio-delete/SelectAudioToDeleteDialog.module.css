@@ -1,0 +1,140 @@
+.dialog {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  margin: 0;
+  border: none;
+  border-radius: 28px;
+  padding: 0;
+  min-width: 300px;
+  max-width: calc(100vw - 48px);
+  max-height: 80vh;
+  background: var(--color-white);
+  box-shadow: 0 11px 15px rgba(0, 0, 0, 0.2), 0 9px 46px rgba(0, 0, 0, 0.12), 0 24px 38px rgba(0, 0, 0, 0.14);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.dialog::backdrop {
+  background: rgba(0, 0, 0, 0.32);
+}
+
+.title {
+  margin: 0;
+  padding: 24px 24px 8px;
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #D81B60;
+  font-family: var(--font-ui);
+  flex-shrink: 0;
+}
+
+.toggleAll {
+  background: none;
+  border: none;
+  padding: 0 24px 8px;
+  font-family: var(--font-ui);
+  font-size: var(--fs-topbar-mm);
+  text-decoration: underline;
+  cursor: pointer;
+  text-align: left;
+  flex-shrink: 0;
+}
+
+.list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px 0;
+  min-height: 40px;
+}
+
+.row {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 10px 24px;
+  cursor: pointer;
+  color: var(--color-text-body);
+}
+
+.checkbox {
+  flex-shrink: 0;
+  width: 18px;
+  height: 18px;
+  margin-top: 2px;
+  accent-color: #D81B60;
+  cursor: pointer;
+}
+
+.checkbox:disabled {
+  accent-color: #9E9E9E;
+  cursor: default;
+}
+
+.rowLabel {
+  font-family: var(--font-ui);
+  font-size: var(--fs-topbar-mm);
+  line-height: 1.4;
+}
+
+.footer {
+  flex-shrink: 0;
+  padding: 12px 24px 16px;
+  border-top: 1px solid rgba(0, 0, 0, 0.12);
+}
+
+.countText {
+  margin: 0 0 2px;
+  font-family: var(--font-ui);
+  font-size: var(--fs-topbar-mm);
+  color: #9E9E9E;
+}
+
+.sizeText {
+  margin: 0;
+  font-family: var(--font-ui);
+  font-size: var(--fs-topbar-mm);
+  font-weight: 700;
+  color: #D81B60;
+}
+
+.actions {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 8px;
+  padding-top: 8px;
+}
+
+.closeBtn {
+  background: none;
+  border: none;
+  padding: 8px;
+  color: var(--color-primary);
+  font-size: var(--fs-topbar-mm);
+  font-weight: 500;
+  font-family: var(--font-ui);
+  letter-spacing: 0.04em;
+  cursor: pointer;
+}
+
+.deleteBtn {
+  background: #D81B60;
+  border: none;
+  border-radius: 20px;
+  padding: 10px 20px;
+  color: var(--color-white);
+  font-size: var(--fs-topbar-mm);
+  font-weight: 500;
+  font-family: var(--font-ui);
+  letter-spacing: 0.04em;
+  cursor: pointer;
+}
+
+.deleteBtn:disabled {
+  background: rgba(0, 0, 0, 0.12);
+  color: rgba(0, 0, 0, 0.38);
+  cursor: not-allowed;
+}

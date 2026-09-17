@@ -33,12 +33,12 @@ One row per screen, notable state, or feature. Status: `todo` · `in-progress` �
 | Dialog: Select Surah | dialog | — | overlay | todo | List all surahs → opens Jump to Ayat (needs capture) |
 | Dialog: Jump to Ayat | dialog | — | overlay | todo | Number input, validates 1..total (needs capture) |
 | Dialog: Select App Theme | dialog | 03.png | overlay | done | Blue / Green / Pink / Brown; Chrome baseline 13-chrome.png; visual check PASS 0.00% |
-| Dialog: Select Surahs to Download | dialog | 09.png | overlay | todo | Pending HTTPS mirror URL + MP3 archive |
+| Dialog: Select Surahs to Download | dialog | 09.png | overlay | done | Chrome baseline 09-chrome.png; visual 0.00% PASS; download mechanics blocked pending HTTPS mirror URL |
 | Dialog: Download progress | dialog | — | overlay | todo | Dual progress bars, ETA, pause/stop (needs capture) |
-| Dialog: Select Audio to Delete | dialog | 10.png (Pink) | overlay | todo | Cache API entries, not device files |
+| Dialog: Select Audio to Delete | dialog | 10.png | overlay | done | Cache API entries, not device files; title/freed-size hardcoded #D81B60; Chrome baseline audio-delete-chrome.png; visual 0.00% PASS |
 | Dialog: Delete progress | dialog | — | overlay | todo | Single progress bar (needs capture) |
 | Dialog: Jump History | dialog | — | overlay | todo | Shown when >2 saved positions (needs capture) |
-| Dialog: About App | dialog | 08.png | overlay | todo | Version + copyright |
+| Dialog: About App | dialog | 08.png | overlay | done | Chrome baseline 08-chrome.png; visual 0.00% PASS |
 | Dialog: Update Available | dialog | — | overlay | n/a | DROPPED — Android APK updater, not for PWA |
 | Feature: Theme system (4) | feature | 03.png | — | done | `app_theme` pref; SelectThemeDialog wired to onPrefsUpdate |
 | Feature: Font scaling A-/A+ | feature | 01.png | — | todo | 3 independent scales, not persisted |

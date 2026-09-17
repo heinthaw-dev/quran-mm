@@ -23,7 +23,6 @@ const BOTTOM_BAR_PX = 0
 // Screens whose reference is a raw Android adb screenshot (has a status bar to crop)
 const ANDROID_REF_SCREENS = new Set([
   'reader-pink',
-  'dialog-about', 'audio-download', 'audio-delete',
 ])
 
 const SCREEN_SCREENSHOT_MAP: Record<string, string> = {
@@ -37,9 +36,9 @@ const SCREEN_SCREENSHOT_MAP: Record<string, string> = {
   'info-viewer-introduction': '05-chrome.png',
   'info-viewer-biography': '06-chrome.png',
   'info-viewer-developer': '07-chrome.png',
-  'dialog-about': '08.png',
-  'audio-download': '09.png',
-  'audio-delete': '10.png',
+  'dialog-about': '08-chrome.png',
+  'audio-download': '09-chrome.png',
+  'audio-delete': 'audio-delete-chrome.png',
 }
 
 const PASS_LIMIT = 0.01
@@ -87,9 +86,9 @@ async function run() {
     'info-viewer-biography': '/info/biography?nosplash=1',
     'info-viewer-developer': '/info/developer?nosplash=1',
     'dialog-select-theme': '/?nosplash=1&dialog=theme',
-    'dialog-about': '/?dialog=about',
-    'audio-download': '/?dialog=download',
-    'audio-delete': '/?dialog=delete',
+    'dialog-about': '/?nosplash=1&dialog=about',
+    'audio-download': '/?nosplash=1&dialog=download',
+    'audio-delete': '/?nosplash=1&dialog=delete',
   }
 
   const devServerUrl = process.env['VISUAL_CHECK_URL'] ?? 'http://localhost:5173'
@@ -101,6 +100,14 @@ async function run() {
   const screenshotBuf = await page.screenshot({ type: 'png' })
   await browser.close()
 
+  // --save-baseline: write Chrome screenshot to App Screenshots/<screenId>-chrome.png and exit
+  if (process.argv[3] === '--save-baseline') {
+    const baselinePath = join(projectRoot, 'App Screenshots', `${screenId}-chrome.png`)
+    writeFileSync(baselinePath, screenshotBuf)
+    console.log(`Baseline saved: ${baselinePath}`)
+    return
+  }
+
   function cropTop(buf: Buffer, topPx: number): PNG {
     const png = PNG.sync.read(buf)
     const cropH = png.height - topPx - BOTTOM_BAR_PX
@@ -109,14 +116,8 @@ async function run() {
     return out
   }
 
-  // Dialog screens: both ref and candidate crop the same amount (ANDROID_STATUS_BAR_PX)
-  // so the vertically-centered dialog lands at the same Y in both comparison images.
-  // (Android centers in full 2340px screen; Chrome centers in viewport; same crop aligns them.)
-  const DIALOG_SCREENS = new Set(['dialog-about'])
-  const isDialog = DIALOG_SCREENS.has(screenId)
-
   const refTopCrop = ANDROID_REF_SCREENS.has(screenId) ? ANDROID_STATUS_BAR_PX : CHROME_TOP_CROP_PX
-  const candidateTopCrop = isDialog ? ANDROID_STATUS_BAR_PX : CHROME_TOP_CROP_PX
+  const candidateTopCrop = CHROME_TOP_CROP_PX
   const refPng = cropTop(readFileSync(refPath), refTopCrop)
   const candidatePng = cropTop(screenshotBuf, candidateTopCrop)
 
@@ -164,6 +165,20 @@ async function run() {
   // Both images use ANDROID_STATUS_BAR_PX crop, so dialog center Y ≈ 2340/2 - 100 = 1070px.
   // Dialog is 280dp wide, centered horizontally; 40px extra padding on all sides.
   const DIALOG_BOX: Partial<Record<string, { x1: number; y1: number; x2: number; y2: number }>> = {
+    'dialog-about': {
+      // Chrome baseline: dialog centered at viewport-height/2 px, crop = CHROME_TOP_CROP_PX (3px)
+      x1: Math.round((w - 280 * SCALE) / 2) + 20,
+      x2: Math.round((w + 280 * SCALE) / 2) - 20,
+      y1: Math.round(2340 / 2 - CHROME_TOP_CROP_PX) - 620,
+      y2: Math.round(2340 / 2 - CHROME_TOP_CROP_PX) + 620,
+    },
+    'audio-download': {
+      // Chrome baseline: crop = CHROME_TOP_CROP_PX (3px). Dialog fills most of screen.
+      x1: 50,
+      x2: w - 50,
+      y1: Math.round(2340 / 2 - CHROME_TOP_CROP_PX) - 940,
+      y2: Math.round(2340 / 2 - CHROME_TOP_CROP_PX) + 630,
+    },
     'dialog-select-theme': {
       // +20px inside left/right dialog edges to avoid scrim-over-reader bleed
       x1: Math.round((w - 280 * SCALE) / 2) + 20,
