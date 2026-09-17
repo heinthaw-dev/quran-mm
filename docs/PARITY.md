@@ -20,7 +20,7 @@ One row per screen, notable state, or feature. Status: `todo` · `in-progress` �
 | Item | Type | Screenshot | Route | Status | Notes |
 |---|---|---|---|---|---|
 | Splash | screen | 11.png | `/` | done | kw_logo centered, near-white bg, 2000 ms; visual test uses 11-chrome.png (Android ICC color diff) |
-| Reader (single-column) | screen | 01.png (Blue) | `/` | done | HorizontalPager, 3 cards per ayat page; Chrome baseline 01-chrome.png |
+| Reader (single-column) | screen | 01.png (Blue) | `/` | done | HorizontalPager, 3 cards per ayat page; Chrome baseline 01-chrome.png. Owner polish 2026-09-18: Surah/Ayat chips use `--shadow-chip` (4-sided elevation, was bottom-only); Myanmar surah name uses `--lh-myanmar: 1.7` so stacked diacritics are not clipped — both intentional deviations from Android |
 | Reader — Pink theme | state | 12.png | `/` | n/a | Descoped by owner 2026-09-17 |
 | Reader — empty Tafsir notes | state | 12.png | `/` | n/a | Descoped by owner 2026-09-17 |
 | Feature: Swipe paging (L/R between ayats) | feature | — | `/` | done | Touch-driven 3-slot pager in ReaderScreen; threshold 60px; snap animation 0.28s |

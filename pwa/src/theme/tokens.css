@@ -14,6 +14,10 @@
 
   /* Top bar shadow (4 dp = 4px) */
   --shadow-topbar: 0 4px 4px rgba(0,0,0,0.12);
+  /* Surah/Ayat chip elevation. Two layers: an offset-0 ambient ring so the
+     shade reads on all four sides, plus a small downward drop so the chip
+     still looks raised rather than glowing. */
+  --shadow-chip: 0 0 2px rgba(0,0,0,0.10), 0 1px 4px rgba(0,0,0,0.16);
 
   /* Font families (single global place) */
   --font-arabic: 'Noto Naskh Arabic', serif;
@@ -35,6 +39,10 @@
   --lh-dialog-title: 2rem;      /* 32sp */
   --lh-dialog-body: 1.25rem;    /* 20sp */
   --lh-dialog-caption: 1rem;    /* 16sp */
+  /* Myanmar script stacks diacritics above and below the base glyph
+     (e.g. အံ့, ဖွယ်), so it needs a taller line box than Latin at the same
+     size. Unitless so it tracks the user's font scale. */
+  --lh-myanmar: 1.7;
 
   /* Font scale bounds */
   --font-scale-min: 0.8;
