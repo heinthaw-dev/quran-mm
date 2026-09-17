@@ -93,7 +93,7 @@ export async function downloadSurahsAudio(
 
       const url = audioUrl(s.number, missing[idx]!)
       try {
-        const res = await fetch(url, { signal })
+        const res = await fetch(url, { signal, headers: { 'ngrok-skip-browser-warning': '1' } })
         if (res.ok) {
           await cache.put(url, res)
         }
