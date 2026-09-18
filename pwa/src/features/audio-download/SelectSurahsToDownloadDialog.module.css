@@ -44,7 +44,9 @@
 }
 
 .list {
-  flex: 1;
+  /* basis auto + min-height 0: WebKit collapses flex-basis 0 lists in an auto-height dialog */
+  flex: 0 1 auto;
+  min-height: 0;
   overflow-y: auto;
   padding: 4px 0;
   border-top: 1px solid rgba(0, 0, 0, 0.08);
