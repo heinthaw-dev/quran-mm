@@ -13,3 +13,34 @@
   max-width: 320px;
   height: auto;
 }
+
+.progress {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: calc(72px + env(safe-area-inset-bottom, 0px));
+  width: min(260px, 64%);
+}
+
+.track {
+  height: 6px;
+  border-radius: 3px;
+  background: color-mix(in srgb, var(--color-primary) 18%, transparent);
+  overflow: hidden;
+}
+
+.bar {
+  height: 100%;
+  border-radius: 3px;
+  background: var(--color-primary);
+  transition: width 0.2s ease;
+}
+
+.label {
+  margin: 8px 0 0;
+  font-family: var(--font-ui);
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--color-primary);
+  text-align: center;
+}

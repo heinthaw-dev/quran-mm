@@ -1,6 +1,5 @@
 import { AUDIO_FETCH_HEADERS } from './config.ts'
-
-export const AUDIO_CACHE_NAME = 'quran-audio'
+import { AUDIO_CACHE_NAME } from './cacheNames.ts'
 
 // URL pattern: /audio/001/001001.mp3
 const AUDIO_URL_RE = /\/audio\/(\d{3})\//

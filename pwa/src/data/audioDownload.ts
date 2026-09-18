@@ -3,7 +3,7 @@
 // showDownloadDialog (MainActivity.kt:966). Sequential per surah, one ayat at a
 // time, to match the native progress + ETA semantics exactly.
 import { audioUrl, AUDIO_FETCH_HEADERS } from './config.ts'
-import { AUDIO_CACHE_NAME } from './audioCache.ts'
+import { AUDIO_CACHE_NAME } from './cacheNames.ts'
 
 export interface DownloadProgress {
   surahIndex: number // 1-based index of the current surah within the batch

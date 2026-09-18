@@ -1,6 +1,7 @@
 import react from '@vitejs/plugin-react'
 import { defineConfig } from 'vite'
 import { VitePWA } from 'vite-plugin-pwa'
+import { DATA_CACHE_NAME } from './src/data/cacheNames.ts'
 
 export default defineConfig({
   server: {
@@ -15,10 +16,21 @@ export default defineConfig({
     VitePWA({
       registerType: 'autoUpdate',
       workbox: {
-        maximumFileSizeToCacheInBytes: 4 * 1024 * 1024, // 4 MiB
-        // Precache the whole dataset (~9.6 MB CSV) so every surah works offline
-        // without being visited first, matching the native app's bundled assets.
-        globPatterns: ['**/*.{js,css,html,woff2,png,svg,ico,csv}'],
+        // Shell only. The ~10 MB CSV set is cached by cacheOfflineData() behind
+        // the splash progress bar, so the user sees it happen instead of waiting
+        // on a silent install (see src/data/dataCache.ts).
+        globPatterns: ['**/*.{js,css,html,woff2,png,svg,ico}'],
+        runtimeCaching: [
+          {
+            urlPattern: ({ url }) =>
+              url.pathname.startsWith('/data/') && url.pathname.endsWith('.csv'),
+            handler: 'CacheFirst',
+            options: {
+              cacheName: DATA_CACHE_NAME,
+              cacheableResponse: { statuses: [0, 200] },
+            },
+          },
+        ],
       },
       includeAssets: ['icons/apple-touch-icon.png', 'icons/icon-192.png', 'icons/icon-512.png'],
       manifest: {
