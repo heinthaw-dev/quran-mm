@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { audioPath } from './config.ts'
+import { audioPath, audioUrl } from './config.ts'
 
 // Fresh module per test: audioCache indexes legacy cache keys once per session.
 const loadGetAudioObjectUrl = async () =>
@@ -54,6 +54,12 @@ describe('getAudioObjectUrl', () => {
   it('streams from the host when the ayat was never downloaded', async () => {
     installFakeCaches()
     await expect((await loadGetAudioObjectUrl())(1, 1)).resolves.toBe('blob:fake')
-    expect(fetchMock).toHaveBeenCalledTimes(1)
+    expect(fetchMock).toHaveBeenCalledWith(audioUrl(1, 1), expect.anything())
+  })
+
+  it('throws when the host refuses the file', async () => {
+    installFakeCaches()
+    fetchMock.mockResolvedValue(new Response('', { status: 404 }))
+    await expect((await loadGetAudioObjectUrl())(1, 1)).rejects.toThrow('Audio unavailable (404)')
   })
 })
