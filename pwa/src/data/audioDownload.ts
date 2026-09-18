@@ -2,7 +2,7 @@
 // so downloaded surahs replay offline. Ports the download loop behind
 // showDownloadDialog (MainActivity.kt:966). Sequential per surah, one ayat at a
 // time, to match the native progress + ETA semantics exactly.
-import { audioUrl, AUDIO_FETCH_HEADERS } from './config.ts'
+import { audioPath, audioUrl, AUDIO_FETCH_HEADERS } from './config.ts'
 import { AUDIO_CACHE_NAME } from './cacheNames.ts'
 
 export interface DownloadProgress {
@@ -55,12 +55,15 @@ export async function downloadSurahsAudio(
 
   // Precompute the missing ayats per surah (resume skips already-cached files),
   // plus the global missing count that the ETA denominator needs.
+  const cachedPaths = new Set(
+    (await cache.keys()).map((req) => new URL(req.url).pathname),
+  )
   const missingBySurah: number[][] = []
   let totalMissing = 0
   for (const s of surahs) {
     const missing: number[] = []
     for (let ayat = 1; ayat <= s.numberOfAyahs; ayat++) {
-      if (!(await cache.match(audioUrl(s.number, ayat)))) missing.push(ayat)
+      if (!cachedPaths.has(audioPath(s.number, ayat))) missing.push(ayat)
     }
     missingBySurah.push(missing)
     totalMissing += missing.length
@@ -91,11 +94,14 @@ export async function downloadSurahsAudio(
       await waitWhilePaused(isPaused, signal)
       throwIfAborted(signal)
 
-      const url = audioUrl(s.number, missing[idx]!)
+      const ayat = missing[idx]!
       try {
-        const res = await fetch(url, { signal, headers: AUDIO_FETCH_HEADERS })
-        if (res.ok) {
-          await cache.put(url, res)
+        const res = await fetch(audioUrl(s.number, ayat), { signal, headers: AUDIO_FETCH_HEADERS })
+        // An HTML body with status 200 is the host's interstitial, not audio:
+        // caching it would mark the ayat downloaded and then fail to decode.
+        const isHtml = res.headers.get('content-type')?.includes('text/html')
+        if (res.ok && !isHtml) {
+          await cache.put(audioPath(s.number, ayat), res)
         }
       } catch (e) {
         // Abort (Stop) propagates; a single failed ayat is skipped, like native.

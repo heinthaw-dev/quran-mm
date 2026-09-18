@@ -1,10 +1,17 @@
 // Single-source audio config — swap VITE_AUDIO_BASE_URL in .env.local to change host
 export const AUDIO_BASE_URL: string = import.meta.env['VITE_AUDIO_BASE_URL'] ?? ''
 
-export function audioUrl(surah: number, ayat: number): string {
+// Cache key, host-independent by design: downloads must survive a change of
+// AUDIO_BASE_URL, and an exact-URL cache lookup against the host can miss when
+// the host varies on a request header (ngrok varies on ngrok-skip-browser-warning).
+export function audioPath(surah: number, ayat: number): string {
   const s = String(surah).padStart(3, '0')
   const a = String(ayat).padStart(3, '0')
-  return `${AUDIO_BASE_URL}/audio/${s}/${s}${a}.mp3`
+  return `/audio/${s}/${s}${a}.mp3`
+}
+
+export function audioUrl(surah: number, ayat: number): string {
+  return `${AUDIO_BASE_URL}${audioPath(surah, ayat)}`
 }
 
 // ngrok's free tier answers any browser-User-Agent request with an HTML warning

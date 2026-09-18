@@ -2,7 +2,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 
 // Synchronous ref update pattern — avoids stale closure in onended handler
-import { audioUrl } from '../data/config.ts'
 import { getAudioObjectUrl } from '../data/audioCache.ts'
 
 interface UseAudioOptions {
@@ -64,7 +63,7 @@ export function useAudio({
   const loadAndPlay = useCallback(async (el: HTMLAudioElement, surah: number, ayat: number) => {
     const gen = ++loadGenRef.current
     try {
-      const objectUrl = await getAudioObjectUrl(audioUrl(surah, ayat))
+      const objectUrl = await getAudioObjectUrl(surah, ayat)
       if (gen !== loadGenRef.current) {
         URL.revokeObjectURL(objectUrl)
         return

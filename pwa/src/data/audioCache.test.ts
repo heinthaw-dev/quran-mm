@@ -1,36 +1,59 @@
-import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest'
-import { getAudioObjectUrl } from './audioCache.ts'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { audioPath } from './config.ts'
+
+// Fresh module per test: audioCache indexes legacy cache keys once per session.
+const loadGetAudioObjectUrl = async () =>
+  (await import('./audioCache.ts')).getAudioObjectUrl
+
+const APP_ORIGIN = 'https://app.test'
+const abs = (url: string) => new URL(url, APP_ORIGIN).href
+
+function installFakeCaches(seed: Record<string, string> = {}) {
+  const store = new Map<string, Response>()
+  for (const [url, body] of Object.entries(seed)) {
+    store.set(abs(url), new Response(body, { status: 200 }))
+  }
+  const cache = {
+    match: async (url: string | { url: string }) =>
+      store.get(abs(typeof url === 'string' ? url : url.url)),
+    put: async (url: string, res: Response) => void store.set(abs(url), res),
+    keys: async () => [...store.keys()].map((url) => ({ url })),
+  }
+  ;(globalThis as unknown as { caches: unknown }).caches = { open: async () => cache }
+}
 
 describe('getAudioObjectUrl', () => {
-  const url = 'https://host.test/audio/001/001001.mp3'
-  let match: ReturnType<typeof vi.fn>
+  let fetchMock: ReturnType<typeof vi.fn>
 
   beforeEach(() => {
-    match = vi.fn(async () => undefined as Response | undefined)
-    vi.stubGlobal('caches', { open: async () => ({ match }) })
-    vi.stubGlobal('URL', { ...URL, createObjectURL: () => 'blob:stub' })
-  })
-  afterEach(() => vi.unstubAllGlobals())
-
-  it('serves a downloaded ayat from Cache Storage without touching the network', async () => {
-    match.mockResolvedValue(new Response(new Blob(['x']), { status: 200 }))
-    const fetchMock = vi.fn()
+    vi.resetModules()
+    fetchMock = vi.fn(async () => new Response('network', { status: 200 }))
     vi.stubGlobal('fetch', fetchMock)
+    URL.createObjectURL = vi.fn(() => 'blob:fake')
+  })
 
-    expect(await getAudioObjectUrl(url)).toBe('blob:stub')
+  afterEach(() => {
+    vi.unstubAllGlobals()
+    delete (globalThis as unknown as { caches?: unknown }).caches
+  })
+
+  it('plays a downloaded ayat from the cache without touching the network', async () => {
+    installFakeCaches({ [audioPath(1, 1)]: 'mp3' })
+    await expect((await loadGetAudioObjectUrl())(1, 1)).resolves.toBe('blob:fake')
     expect(fetchMock).not.toHaveBeenCalled()
   })
 
-  it('falls back to the network with the host headers on a cache miss', async () => {
-    const fetchMock = vi.fn(async () => new Response(new Blob(['x']), { status: 200 }))
-    vi.stubGlobal('fetch', fetchMock)
-
-    expect(await getAudioObjectUrl(url)).toBe('blob:stub')
-    expect(fetchMock).toHaveBeenCalledWith(url, expect.anything())
+  // Downloads made by an earlier build are keyed by the audio host, which the
+  // path lookup no longer addresses — they must still play offline.
+  it('recovers an ayat cached under a previous audio host', async () => {
+    installFakeCaches({ [`https://old-host.example${audioPath(1, 1)}`]: 'mp3' })
+    await expect((await loadGetAudioObjectUrl())(1, 1)).resolves.toBe('blob:fake')
+    expect(fetchMock).not.toHaveBeenCalled()
   })
 
-  it('throws when the host refuses the file', async () => {
-    vi.stubGlobal('fetch', async () => new Response('', { status: 404 }))
-    await expect(getAudioObjectUrl(url)).rejects.toThrow('Audio unavailable (404)')
+  it('streams from the host when the ayat was never downloaded', async () => {
+    installFakeCaches()
+    await expect((await loadGetAudioObjectUrl())(1, 1)).resolves.toBe('blob:fake')
+    expect(fetchMock).toHaveBeenCalledTimes(1)
   })
 })

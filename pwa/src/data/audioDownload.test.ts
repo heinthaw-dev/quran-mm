@@ -1,14 +1,19 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { downloadSurahsAudio, type DownloadProgress } from './audioDownload.ts'
-import { audioUrl } from './config.ts'
+import { audioPath, audioUrl } from './config.ts'
 
-// Minimal in-memory Cache Storage stand-in (jsdom has no `caches`).
+// Minimal in-memory Cache Storage stand-in (jsdom has no `caches`). Keys are
+// absolutised like the real Cache API, so path keys and host keys are distinct.
+const APP_ORIGIN = 'https://app.test'
+const abs = (url: string) => new URL(url, APP_ORIGIN).href
+
 function installFakeCaches(seed: string[] = []) {
   const store = new Map<string, Response>()
-  for (const url of seed) store.set(url, new Response('cached', { status: 200 }))
+  for (const url of seed) store.set(abs(url), new Response('cached', { status: 200 }))
   const cache = {
-    match: async (url: string) => store.get(url),
-    put: async (url: string, res: Response) => void store.set(url, res),
+    match: async (url: string) => store.get(abs(url)),
+    put: async (url: string, res: Response) => void store.set(abs(url), res),
+    keys: async () => [...store.keys()].map((url) => ({ url })),
   }
   ;(globalThis as unknown as { caches: unknown }).caches = { open: async () => cache }
   return store
@@ -49,7 +54,7 @@ describe('downloadSurahsAudio', () => {
   })
 
   it('skips already-cached ayats and resumes from the next missing one', async () => {
-    installFakeCaches([audioUrl(1, 1), audioUrl(1, 2)])
+    installFakeCaches([audioPath(1, 1), audioPath(1, 2)])
     const frames: DownloadProgress[] = []
     await downloadSurahsAudio(
       [{ number: 1, numberOfAyahs: 3 }],
