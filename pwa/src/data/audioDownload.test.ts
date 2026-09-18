@@ -70,18 +70,19 @@ describe('downloadSurahsAudio', () => {
     expect(frames.at(-1)!.ayatDone).toBe(3)
   })
 
-  // Surah 1's ids run 0..6 (001000.mp3 is the basmala the reader's first page
-  // plays); every other surah runs 1..N.
+  // quran_surahs.csv states 6 ayats for surah 1, but its audio is 001000..001006:
+  // the basmala the reader's first page plays is ayat 0 and is not counted.
   it('downloads surah 1 from ayat 0 and never asks for one past its last', async () => {
     installFakeCaches()
     await downloadSurahsAudio(
-      [{ number: 1, numberOfAyahs: 7 }],
+      [{ number: 1, numberOfAyahs: 6 }],
       () => {},
       new AbortController().signal,
       neverPaused,
     )
 
     expect(fetchMock).toHaveBeenCalledWith(audioUrl(1, 0), expect.anything())
+    expect(fetchMock).toHaveBeenCalledWith(audioUrl(1, 6), expect.anything())
     expect(fetchMock).not.toHaveBeenCalledWith(audioUrl(1, 7), expect.anything())
     expect(fetchMock).toHaveBeenCalledTimes(7)
   })
