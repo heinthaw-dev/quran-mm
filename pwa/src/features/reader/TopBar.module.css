@@ -93,7 +93,10 @@
 
 .chip {
   min-width: 60px;
-  padding: 4px 8px;
+  /* 4px each side, shifted down by --chip-text-nudge so the Latin label sits
+     optically centred in the font's lopsided line box. Total height unchanged. */
+  padding: calc(4px + var(--chip-text-nudge)) 8px
+    calc(4px - var(--chip-text-nudge));
   margin: 0 2px;
   background-color: var(--color-white);
   border: none;
