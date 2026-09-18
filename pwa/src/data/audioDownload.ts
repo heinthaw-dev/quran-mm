@@ -44,6 +44,15 @@ function computeEta(totalMissing: number, processedCount: number, startTime: num
   return null
 }
 
+// Surah 1 alone starts at ayat 0: its basmala row (Ayat_id 0 in 001.csv, played
+// as 001000.mp3) makes its ids 0..6, while every other surah runs 1..N. Looping
+// 1..numberOfAyahs everywhere skipped that file and asked for a 001007.mp3 that
+// does not exist, so the reader's first page had nothing cached to play offline.
+function ayatIds({ number, numberOfAyahs }: SurahDownloadJob): number[] {
+  const first = number === 1 ? 0 : 1
+  return Array.from({ length: numberOfAyahs }, (_, i) => first + i)
+}
+
 export async function downloadSurahsAudio(
   surahs: SurahDownloadJob[],
   onProgress: (p: DownloadProgress) => void,
@@ -61,10 +70,9 @@ export async function downloadSurahsAudio(
   const missingBySurah: number[][] = []
   let totalMissing = 0
   for (const s of surahs) {
-    const missing: number[] = []
-    for (let ayat = 1; ayat <= s.numberOfAyahs; ayat++) {
-      if (!cachedPaths.has(audioPath(s.number, ayat))) missing.push(ayat)
-    }
+    const missing = ayatIds(s).filter(
+      (ayat) => !cachedPaths.has(audioPath(s.number, ayat)),
+    )
     missingBySurah.push(missing)
     totalMissing += missing.length
   }

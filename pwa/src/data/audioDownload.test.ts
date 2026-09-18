@@ -41,7 +41,7 @@ describe('downloadSurahsAudio', () => {
     const store = installFakeCaches()
     const frames: DownloadProgress[] = []
     await downloadSurahsAudio(
-      [{ number: 1, numberOfAyahs: 3 }],
+      [{ number: 2, numberOfAyahs: 3 }],
       (p) => frames.push({ ...p }),
       new AbortController().signal,
       neverPaused,
@@ -50,24 +50,40 @@ describe('downloadSurahsAudio', () => {
     expect(fetchMock).toHaveBeenCalledTimes(3)
     expect(store.size).toBe(3)
     const last = frames.at(-1)!
-    expect(last).toMatchObject({ surahIndex: 1, surahTotal: 1, currentSurahId: 1, ayatDone: 3, ayatTotal: 3 })
+    expect(last).toMatchObject({ surahIndex: 1, surahTotal: 1, currentSurahId: 2, ayatDone: 3, ayatTotal: 3 })
   })
 
   it('skips already-cached ayats and resumes from the next missing one', async () => {
-    installFakeCaches([audioPath(1, 1), audioPath(1, 2)])
+    installFakeCaches([audioPath(2, 1), audioPath(2, 2)])
     const frames: DownloadProgress[] = []
     await downloadSurahsAudio(
-      [{ number: 1, numberOfAyahs: 3 }],
+      [{ number: 2, numberOfAyahs: 3 }],
       (p) => frames.push({ ...p }),
       new AbortController().signal,
       neverPaused,
     )
 
     expect(fetchMock).toHaveBeenCalledTimes(1)
-    expect(fetchMock).toHaveBeenCalledWith(audioUrl(1, 3), expect.anything())
+    expect(fetchMock).toHaveBeenCalledWith(audioUrl(2, 3), expect.anything())
     // First frame is the surah-start snapshot: 2 already cached.
     expect(frames[0]!.ayatDone).toBe(2)
     expect(frames.at(-1)!.ayatDone).toBe(3)
+  })
+
+  // Surah 1's ids run 0..6 (001000.mp3 is the basmala the reader's first page
+  // plays); every other surah runs 1..N.
+  it('downloads surah 1 from ayat 0 and never asks for one past its last', async () => {
+    installFakeCaches()
+    await downloadSurahsAudio(
+      [{ number: 1, numberOfAyahs: 7 }],
+      () => {},
+      new AbortController().signal,
+      neverPaused,
+    )
+
+    expect(fetchMock).toHaveBeenCalledWith(audioUrl(1, 0), expect.anything())
+    expect(fetchMock).not.toHaveBeenCalledWith(audioUrl(1, 7), expect.anything())
+    expect(fetchMock).toHaveBeenCalledTimes(7)
   })
 
   it('numbers surahs by batch index but shows the real surah id', async () => {
