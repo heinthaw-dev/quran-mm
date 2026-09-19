@@ -53,7 +53,10 @@ interface NotesProps {
 
 // Render explanation note text with [N] labels and [s:a] links
 export function NotesText({ text, onJump }: NotesProps) {
-  const segments = tokenize(text, [
+  // Replace # with newline, like the translation text does
+  const normalized = text.replace(/#/g, '\n')
+
+  const segments = tokenize(normalized, [
     { re: new RegExp(NOTE_LABEL_RE.source, 'gm'), type: 'noteLabel' as const },
     { re: new RegExp(CROSSREF_RE.source, 'g'), type: 'crossref' as const },
   ])

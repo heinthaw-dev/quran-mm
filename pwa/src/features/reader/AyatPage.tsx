@@ -185,7 +185,7 @@ export function AyatPage({
               {'\n'}
               <span className={styles.translationNoteLabel}>Translation Note</span>
               {' '}
-              {translationNote.trim()}
+              <TranslationText text={translationNote.trim()} onJump={onJump} />
             </span>
           )}
         </p>
