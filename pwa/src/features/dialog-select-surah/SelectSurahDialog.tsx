@@ -12,16 +12,24 @@ interface Props {
 
 export function SelectSurahDialog({ surahs, currentSurahId, onSelect, onClose }: Props) {
   const ref = useRef<HTMLDialogElement>(null)
+  const listRef = useRef<HTMLDivElement>(null)
   const [selectedId, setSelectedId] = useState(currentSurahId)
 
   useEffect(() => {
     ref.current?.showModal()
   }, [])
 
-  // Scroll selected row into view on open
+  // Centre the selected row on open. WebKit ignores scrollIntoView inside a dialog
+  // opened in the same frame, so wait a frame and set scrollTop ourselves.
   useEffect(() => {
-    const el = ref.current?.querySelector(`[data-surah="${currentSurahId}"]`)
-    el?.scrollIntoView({ block: 'center' })
+    const frame = requestAnimationFrame(() => {
+      const list = listRef.current
+      const row = list?.querySelector<HTMLElement>(`[data-surah="${currentSurahId}"]`)
+      if (!list || !row) return
+      const offset = row.getBoundingClientRect().top - list.getBoundingClientRect().top
+      list.scrollTop += offset - (list.clientHeight - row.offsetHeight) / 2
+    })
+    return () => cancelAnimationFrame(frame)
   }, [currentSurahId])
 
   function handleRowClick(surahId: number) {
@@ -40,7 +48,7 @@ export function SelectSurahDialog({ surahs, currentSurahId, onSelect, onClose }:
   return (
     <dialog ref={ref} className={styles.dialog} onClick={handleBackdropClick} onClose={onClose}>
       <p className={styles.title}>Select Surah</p>
-      <div className={styles.list}>
+      <div className={styles.list} ref={listRef}>
         {surahs.map((surah, i) => (
           <div key={surah.number}>
             {i > 0 && <hr className={styles.divider} />}

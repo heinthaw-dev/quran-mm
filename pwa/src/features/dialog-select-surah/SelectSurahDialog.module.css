@@ -31,8 +31,10 @@
 }
 
 .list {
+  /* basis auto + min-height 0: WebKit collapses flex-basis 0 lists in an auto-height dialog */
+  flex: 0 1 auto;
+  min-height: 0;
   overflow-y: auto;
-  flex: 1;
 }
 
 .divider {
