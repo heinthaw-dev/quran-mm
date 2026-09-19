@@ -35,7 +35,7 @@ export default defineConfig({
       includeAssets: ['icons/apple-touch-icon.png', 'icons/icon-192.png', 'icons/icon-512.png'],
       manifest: {
         name: 'ကုရ်အာန် (KW)',
-        short_name: 'KW',
+        short_name: 'ကုရ်အာန်(KW)',
         description: 'Myanmar Quran Translation',
         theme_color: '#4B559C',
         background_color: '#F0F4F8',
