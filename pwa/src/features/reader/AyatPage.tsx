@@ -170,9 +170,13 @@ export function AyatPage({
           </>
         }
       >
+        {/* dir must stay ltr: dir="auto" means unicode-bidi: plaintext, and with
+            white-space: pre-wrap every '#' line break starts its own bidi
+            paragraph, so a line beginning with Arabic flips right-aligned.
+            Android lays these out ltr and shapes the Arabic run inline. */}
         <p
           className={styles.bodyText}
-          dir="auto"
+          dir="ltr"
           lang="my"
           style={{
             fontSize: `calc(var(--fs-body) * ${myanmarFontScale})`,
@@ -212,7 +216,7 @@ export function AyatPage({
         {hasNotes ? (
           <p
             className={styles.bodyText}
-            dir="auto"
+            dir="ltr"
             style={{
               fontSize: `calc(var(--fs-body) * ${noteFontScale})`,
               lineHeight: `calc(var(--lh-body) * ${noteFontScale})`,

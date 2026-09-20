@@ -56,7 +56,8 @@ export interface AppPrefs {
 export const DEFAULT_PREFS: AppPrefs = {
   theme: 'BLUE',
   lastSurah: 1,
-  lastAyat: 1,
+  // Surah 1 opens on its basmala row, which is ayat 0 in 001.csv.
+  lastAyat: 0,
   rememberLastRead: true,
   continuousSwiping: true,
   arabicFontScale: 1.0,
