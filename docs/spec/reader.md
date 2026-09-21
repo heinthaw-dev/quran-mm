@@ -47,3 +47,7 @@ Three independent `Float` scales (arabic/myanmar/note), default 1.0, range 0.8�
 - Footnote markers: regex `(?<=\s)\d+[a-zA-Z]?(?=[\s။,]|$)`. Crossref: `\[\d+:[\d,-]+\]`.
 - Arabic end mark: `۝` + Eastern-Arabic numerals (char.code + 1584). Appended by app.
 - multi_ayats = one pager page per CSV row; Arabic texts for all IDs joined with space.
+- The ayat number shown is the raw multi_ayats cell, falling back to Ayat_id when it is empty
+  (MainActivity.kt:683-690). A combined row reads `Ayat 1-2 / 6` in the chip and `[1:1-2]` in the
+  Arabic card title; the next row's own Ayat_id (3) continues the count, since the CSV already
+  skips the ids a range swallowed. Jumping to any id inside a range lands on that row.

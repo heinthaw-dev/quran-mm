@@ -17,7 +17,7 @@ interface Props {
   surahId: number
   pageIndex: number
   totalPages: number
-  currentAyatId: number
+  currentAyatLabel: string
   totalAyats: number
   surah: SurahMeta | undefined
   jumpHistory: JumpTarget[]
@@ -40,7 +40,7 @@ export function TopBar({
   surahId,
   pageIndex,
   totalPages,
-  currentAyatId,
+  currentAyatLabel,
   totalAyats,
   surah,
   jumpHistory,
@@ -136,7 +136,7 @@ export function TopBar({
           >
             <span>Ayat</span>
             <span>
-              {currentAyatId} / {totalAyats}
+              {currentAyatLabel} / {totalAyats}
             </span>
           </button>
           <button

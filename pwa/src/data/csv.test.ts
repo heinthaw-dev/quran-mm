@@ -5,6 +5,9 @@ import {
   parseSurahsMeta,
   parseMyanmarNames,
   buildNotesIndex,
+  ayatLabel,
+  parseAyatIds,
+  ayatIdsOf,
 } from './csv.ts'
 
 // Fixture uses CRLF endings and trailing CRLF, matching real NNN.csv format
@@ -95,5 +98,47 @@ describe('buildNotesIndex', () => {
     expect(idx.get('217a')).toBe('a မျိုး')
     expect(idx.get('217b')).toBe('b မျိုး')
     expect(idx.get('171')).toBeUndefined()
+  })
+})
+
+describe('ayatLabel', () => {
+  it('shows the multi_ayats range for a combined row', () => {
+    const rows = parseAyats(AYATS_CSV)
+    expect(ayatLabel(rows[1])).toBe('1-2')
+  })
+
+  it('falls back to Ayat_id when multi_ayats is empty', () => {
+    const rows = parseAyats(AYATS_CSV)
+    expect(ayatLabel(rows[0])).toBe('0')
+    expect(ayatLabel(rows[2])).toBe('3')
+  })
+
+  it('defaults to 1 with no row', () => {
+    expect(ayatLabel(undefined)).toBe('1')
+  })
+})
+
+describe('parseAyatIds', () => {
+  it('expands a range', () => {
+    expect(parseAyatIds('1-3')).toEqual([1, 2, 3])
+  })
+
+  it('returns a single id unchanged', () => {
+    expect(parseAyatIds('7')).toEqual([7])
+  })
+
+  it('returns empty for unparseable input', () => {
+    expect(parseAyatIds('')).toEqual([])
+    expect(parseAyatIds('abc')).toEqual([])
+  })
+})
+
+describe('ayatIdsOf', () => {
+  it('covers every ayat of a combined row', () => {
+    expect(ayatIdsOf({ ayatId: 1, mmTranslation: '', multiAyats: '1-2' })).toEqual([1, 2])
+  })
+
+  it('falls back to the rows own id when multi_ayats is empty', () => {
+    expect(ayatIdsOf({ ayatId: 3, mmTranslation: '', multiAyats: '' })).toEqual([3])
   })
 })

@@ -2,7 +2,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import type { AppPrefs, AppTheme } from '../../data/types.ts'
-import { useSurah } from '../../hooks/useSurah.ts'
+import { useSurah, ayatLabel } from '../../hooks/useSurah.ts'
 import { useAudio } from '../../hooks/useAudio.ts'
 import { useAudioDownload } from '../../hooks/useAudioDownload.ts'
 import type { SurahDownloadJob } from '../../data/audioDownload.ts'
@@ -51,6 +51,8 @@ export function ReaderScreen({ prefs, onPrefsUpdate }: Props) {
   const totalPages = state.ayats.length
   const currentRow = actions.getCurrentRow()
   const currentAyatId = currentRow?.ayatId ?? 1
+  // A combined row shows its raw multi_ayats range in the chip (MainActivity.kt:1492)
+  const currentAyatLabel = ayatLabel(currentRow)
   const arabicText = actions.getArabicText()
   const notesForPage = actions.getNotesForPage()
 
@@ -358,7 +360,7 @@ export function ReaderScreen({ prefs, onPrefsUpdate }: Props) {
         surahId={surahId}
         pageIndex={pageIndex}
         totalPages={totalPages}
-        currentAyatId={currentAyatId}
+        currentAyatLabel={currentAyatLabel}
         totalAyats={totalAyats}
         surah={surah}
         jumpHistory={jumpHistory}

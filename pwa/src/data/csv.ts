@@ -72,3 +72,30 @@ export function buildNotesIndex(notes: NoteRow[]): Map<string, string> {
   }
   return map
 }
+
+// MainActivity.kt:683-690 — a blank multi_ayats cell falls back to the row's
+// own Ayat_id, and the raw cell ("1-2") is what the UI shows as the ayat number.
+export function ayatLabel(row: AyatRow | undefined): string {
+  if (!row) return '1'
+  return row.multiAyats || String(row.ayatId)
+}
+
+// MainActivity.kt:131-143 — expand "1-2" into [1, 2]; a plain "3" into [3].
+export function parseAyatIds(multiStr: string): number[] {
+  const cleaned = multiStr.replace(/[^\d-]/g, '')
+  if (!cleaned) return []
+  const parts = cleaned.split('-')
+  if (parts.length === 2) {
+    const start = parseInt(parts[0] ?? '', 10)
+    const end = parseInt(parts[1] ?? '', 10)
+    if (isNaN(start) || isNaN(end) || end < start) return []
+    return Array.from({ length: end - start + 1 }, (_, i) => start + i)
+  }
+  const single = parseInt(cleaned, 10)
+  return isNaN(single) ? [] : [single]
+}
+
+// Every ayat id a row covers, in CSV order.
+export function ayatIdsOf(row: AyatRow): number[] {
+  return parseAyatIds(ayatLabel(row))
+}

@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { loadSurahMeta, loadAyats, loadNotes } from '../data/surah.ts'
 import { loadArabicAyats, getArabicAyat } from '../data/arabic.ts'
-import { buildNotesIndex } from '../data/csv.ts'
+import { buildNotesIndex, ayatIdsOf, ayatLabel } from '../data/csv.ts'
 import type { SurahMeta, AyatRow, NoteRow, ArabicAyat, FontScale, AppPrefs } from '../data/types.ts'
 
 export interface JumpTarget {
@@ -64,6 +64,9 @@ const NOTE_LABEL_RE = /^\[\d+[a-zA-Z]?\]/gm
 
 export { FOOTNOTE_MARKER_RE, CROSSREF_RE, NOTE_LABEL_RE }
 
+// Re-exported so feature components get the ayat label without importing data/
+export { ayatLabel }
+
 function toEasternArabicNumeral(n: number): string {
   return String(n)
     .split('')
@@ -71,24 +74,8 @@ function toEasternArabicNumeral(n: number): string {
     .join('')
 }
 
-function parseAyatIds(multiStr: string): number[] {
-  if (!multiStr) return []
-  const parts = multiStr.split('-')
-  if (parts.length === 2) {
-    const start = parseInt(parts[0] ?? '0', 10)
-    const end = parseInt(parts[1] ?? '0', 10)
-    return Array.from({ length: end - start + 1 }, (_, i) => start + i)
-  }
-  return [parseInt(multiStr, 10)]
-}
-
 function pageIndexForAyat(ayats: AyatRow[], ayatId: number): number {
-  const idx = ayats.findIndex((row) => {
-    if (row.ayatId === ayatId) return true
-    if (!row.multiAyats) return false
-    const ids = parseAyatIds(row.multiAyats)
-    return ids.includes(ayatId)
-  })
+  const idx = ayats.findIndex((row) => ayatIdsOf(row).includes(ayatId))
   return idx >= 0 ? idx : 0
 }
 
@@ -235,8 +222,7 @@ export function useSurah(
   const getArabicText = useCallback((): string => {
     const row = pageData.ayats[pageData.pageIndex]
     if (!row) return ''
-    const ids = row.multiAyats ? parseAyatIds(row.multiAyats) : [row.ayatId]
-    return ids
+    return ayatIdsOf(row)
       .map((id) => {
         const ar = getArabicAyat(arabicAyats, surahId, id)
         if (!ar) return ''
@@ -268,8 +254,7 @@ export function useSurah(
     (index: number): string => {
       const row = pageData.ayats[index]
       if (!row) return ''
-      const ids = row.multiAyats ? parseAyatIds(row.multiAyats) : [row.ayatId]
-      return ids
+      return ayatIdsOf(row)
         .map((id) => {
           const ar = getArabicAyat(arabicAyats, surahId, id)
           if (!ar) return ''

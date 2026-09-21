@@ -6,6 +6,7 @@ import {
   PauseIcon,
   PlaylistPlayIcon,
 } from '../../ui/Icons.tsx'
+import { ayatLabel } from '../../hooks/useSurah.ts'
 import { BlueprintCard } from './BlueprintCard.tsx'
 import { TranslationText, NotesText } from './RichText.tsx'
 import styles from './AyatPage.module.css'
@@ -99,10 +100,10 @@ export function AyatPage({
   onScaleNote,
   onJump,
 }: Props) {
-  const ayatId = row?.ayatId ?? 1
   const surahArabicName = surah?.name ?? ''
-  // Card 1 title: Arabic surah name + [surahId:ayatId]
-  const arabicTitle = `${surahArabicName} [${surahId}:${ayatId}]`
+  // Card 1 title: Arabic surah name + [surahId:ayatId]; a combined row shows
+  // its whole multi_ayats range, e.g. [1:1-2] (MainActivity.kt:1715)
+  const arabicTitle = `${surahArabicName} [${surahId}:${ayatLabel(row)}]`
 
   const translationParts = row ? row.mmTranslation.split('@') : ['', '']
   const translationMain = translationParts[0] ?? ''
