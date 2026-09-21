@@ -13,6 +13,8 @@ The core screen: read one ayat "page" at a time (Arabic + Myanmar translation + 
 - Hamburger (Menu, 32 dp) → open drawer.
 - `< Surah N/114 >`: arrows step `selectedSurahId`; gray `LightGray` when at first/last. Chip (rounded 8 dp, shadow 4 dp) → Select Surah dialog.
 - `< Ayat M/total >`: arrows step pager ±1 page; wraps across surahs when Continuous Swiping on. Chip → Jump to Ayat dialog.
+- Chip text is a single two-line `Text`: `"Surah\n$surahProg"` and `"Ayat\n$ayatProg"` — label on line 1, numbers on line 2, centred. `surahProg = "$selectedSurahId/114"` (no spaces around `/`); `ayatProg = "$topMultiString / $totalAyats"` (a space each side of `/`). Both bold, `theme.primary`.
+- Chip background is `theme.bg` — the same colour as the page behind it (Blue `#F0F4F8`, Green `#E8F5E9`, Pink `#FCE4EC`, Brown `#EFEBE9`), so only its 4 dp shadow separates it from the bar.
 - History icon (contentDescription "History"): tint `theme.primary` when jumps exist else `LightGray`. If `jumpHistory.size <= 2` jumps back to origin + clears; if `> 2` opens Jump History dialog.
 
 ## Top bar — Row 2 (sub-bar)
@@ -38,7 +40,7 @@ Three independent `Float` scales (arabic/myanmar/note), default 1.0, range 0.8�
 ## Exact measurements (from android-explorer)
 - TopBar outer: px-1 py-2 + statusBarsPadding. Row1: SpaceEvenly. Row2: SpaceBetween, px-3 py-1.
 - Menu/History: 32dp icon, 4dp inner pad. Chevrons: 28dp, 2dp inner pad. GPS: 22dp icon.
-- Chip: 8dp radius, 4dp shadow, px-2 (outer) + px-2 (inner), minW 60dp, 12sp/14sp.
+- Chip: 8dp radius, 4dp shadow, px-2 (outer) + px-2 (inner), minW 60dp, 12sp/14sp, bold, two lines.
 - Card: 12dp corner, 2dp elevation. Outer: mx-1.5 my-1. Header: px-3 py-2. Body: p-3.
 - Card icon row: 4dp gap. Play/PlaylistPlay: 26dp. Copy: 20dp. A-/A+: 15sp, px-1.
 - Page: contentPadding top=6dp bottom=24dp. Cards separated by 4+4=8dp (from outer margin).

@@ -68,7 +68,12 @@ export function TopBar({
     <header className={styles.topBar}>
       {/* Row 1 */}
       <div className={styles.row1}>
-        <button className={styles.iconBtn32} onClick={onMenuClick} aria-label="Menu" type="button">
+        <button
+          className={styles.iconBtn32}
+          onClick={onMenuClick}
+          aria-label="Menu"
+          type="button"
+        >
           <MenuIcon size={32} />
         </button>
 
@@ -81,7 +86,10 @@ export function TopBar({
             aria-label="Previous surah"
             type="button"
           >
-            <ChevronLeftIcon size={28} color={atFirstSurah ? '#BDBDBD' : 'currentColor'} />
+            <ChevronLeftIcon
+              size={28}
+              color={atFirstSurah ? '#BDBDBD' : 'currentColor'}
+            />
           </button>
           <button
             className={styles.chip}
@@ -89,7 +97,8 @@ export function TopBar({
             aria-label="Select surah"
             type="button"
           >
-            Surah {surahId}/114
+            <span>Surah</span>
+            <span>{surahId}/114</span>
           </button>
           <button
             className={styles.iconBtn28}
@@ -98,7 +107,10 @@ export function TopBar({
             aria-label="Next surah"
             type="button"
           >
-            <ChevronRightIcon size={28} color={atLastSurah ? '#BDBDBD' : 'currentColor'} />
+            <ChevronRightIcon
+              size={28}
+              color={atLastSurah ? '#BDBDBD' : 'currentColor'}
+            />
           </button>
         </div>
 
@@ -111,7 +123,10 @@ export function TopBar({
             aria-label="Previous ayat"
             type="button"
           >
-            <ChevronLeftIcon size={28} color={atFirstPage ? '#BDBDBD' : 'currentColor'} />
+            <ChevronLeftIcon
+              size={28}
+              color={atFirstPage ? '#BDBDBD' : 'currentColor'}
+            />
           </button>
           <button
             className={styles.chip}
@@ -119,7 +134,10 @@ export function TopBar({
             aria-label="Jump to ayat"
             type="button"
           >
-            Ayat {currentAyatId}/{totalAyats}
+            <span>Ayat</span>
+            <span>
+              {currentAyatId} / {totalAyats}
+            </span>
           </button>
           <button
             className={styles.iconBtn28}
@@ -128,7 +146,10 @@ export function TopBar({
             aria-label="Next ayat"
             type="button"
           >
-            <ChevronRightIcon size={28} color={atLastPage ? '#BDBDBD' : 'currentColor'} />
+            <ChevronRightIcon
+              size={28}
+              color={atLastPage ? '#BDBDBD' : 'currentColor'}
+            />
           </button>
         </div>
 
@@ -138,7 +159,10 @@ export function TopBar({
           aria-label="History"
           type="button"
         >
-          <RefreshIcon size={32} color={historyActive ? 'var(--color-primary)' : '#BDBDBD'} />
+          <RefreshIcon
+            size={32}
+            color={historyActive ? 'var(--color-primary)' : '#BDBDBD'}
+          />
         </button>
       </div>
 

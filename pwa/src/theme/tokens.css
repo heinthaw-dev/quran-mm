@@ -14,18 +14,14 @@
 
   /* Top bar shadow (4 dp = 4px) */
   --shadow-topbar: 0 4px 4px rgba(0,0,0,0.12);
-  /* Surah/Ayat chip elevation. Two layers: an offset-0 ambient ring so the
-     shade reads on all four sides, plus a small downward drop so the chip
-     still looks raised rather than glowing. */
-  --shadow-chip: 0 0 2px rgba(0,0,0,0.10), 0 1px 4px rgba(0,0,0,0.16);
-  /* Optical centring for chip text. Noto Sans Myanmar reserves room for
-     stacked diacritics, so at 12px its ascent:descent is a lopsided 16:10.
-     Chip labels ("Surah 1/114") are Latin with caps but no descenders, so the
-     ink lands 3px higher in the line box than the symmetric padding suggests.
-     Splitting that 3px across top and bottom padding centres the text without
-     changing the chip's height. Independent of line-height: the gap comes from
-     the font's own metrics. */
-  --chip-text-nudge: 1.5px;
+  /* Surah/Ayat chip elevation. The chip sits on the theme background in the
+     same colour, so only the shade tells it apart: Material's 4 dp elevation
+     (the Android Surface's shadowElevation) in its three standard layers. */
+  --shadow-chip: 0 2px 4px -1px rgba(0,0,0,0.20), 0 4px 5px rgba(0,0,0,0.14),
+    0 1px 10px rgba(0,0,0,0.12);
+  /* Pressed state: Material 1 dp, so the chip visibly sinks on tap. */
+  --shadow-chip-pressed: 0 2px 1px -1px rgba(0,0,0,0.20),
+    0 1px 1px rgba(0,0,0,0.14), 0 1px 3px rgba(0,0,0,0.12);
 
   /* Font families (single global place) */
   --font-arabic: 'Noto Naskh Arabic', serif;

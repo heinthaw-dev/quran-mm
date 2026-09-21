@@ -91,24 +91,37 @@
   flex-shrink: 0;
 }
 
+/* Two-line chip: label above, numbers below, like the Android Surface whose
+   Text is "Surah\n18/114". Same colour as the page, raised by its shadow. */
 .chip {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
   min-width: 60px;
-  /* 4px each side, shifted down by --chip-text-nudge so the Latin label sits
-     optically centred in the font's lopsided line box. Total height unchanged. */
-  padding: calc(4px + var(--chip-text-nudge)) 8px
-    calc(4px - var(--chip-text-nudge));
+  padding: 4px 8px;
   margin: 0 2px;
-  background-color: var(--color-white);
+  background-color: var(--color-bg);
   border: none;
   border-radius: 8px;
   box-shadow: var(--shadow-chip);
   cursor: pointer;
   font-family: var(--font-ui);
   font-size: var(--fs-chip);
+  font-weight: 700;
   line-height: calc(14 / 16 * 1rem);
-  color: var(--color-text-body);
+  color: var(--color-primary);
   text-align: center;
   white-space: nowrap;
+  -webkit-tap-highlight-color: transparent;
+  transition:
+    box-shadow 0.12s ease,
+    transform 0.12s ease;
+}
+
+.chip:active {
+  box-shadow: var(--shadow-chip-pressed);
+  transform: translateY(1px);
 }
 
 .englishName {
