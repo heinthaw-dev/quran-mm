@@ -14,6 +14,7 @@ import { DownloadProgressDialog } from '../download-progress/DownloadProgressDia
 import { SelectAudioToDeleteDialog } from '../audio-delete/SelectAudioToDeleteDialog.tsx'
 import { SelectSurahDialog } from '../dialog-select-surah/SelectSurahDialog.tsx'
 import { JumpToAyatDialog } from '../dialog-jump-to-ayat/JumpToAyatDialog.tsx'
+import { JumpHistoryDialog } from '../dialog-jump-history/JumpHistoryDialog.tsx'
 import { TopBar } from './TopBar.tsx'
 import { AyatPage } from './AyatPage.tsx'
 import styles from './ReaderScreen.module.css'
@@ -148,9 +149,11 @@ export function ReaderScreen({ prefs, onPrefsUpdate }: Props) {
     }
   }, [phase, actions])
 
+  // A [surah:ayat] link is the only jump that starts a history session
+  // (MainActivity.kt:587-594)
   const handleJump = useCallback(
     (targetSurah: number, targetAyat: number) => {
-      actions.goTo(targetSurah, targetAyat, true)
+      actions.jumpFromLink(targetSurah, targetAyat)
     },
     [actions],
   )
@@ -162,7 +165,7 @@ export function ReaderScreen({ prefs, onPrefsUpdate }: Props) {
   const handleDrawerClose = useCallback(() => setDrawerOpen(false), [])
 
   const handleAutoTrack = useCallback(
-    (surah: number, ayat: number) => { actions.goTo(surah, ayat, false) },
+    (surah: number, ayat: number) => { actions.goTo(surah, ayat) },
     [actions],
   )
 
@@ -188,6 +191,35 @@ export function ReaderScreen({ prefs, onPrefsUpdate }: Props) {
     [audioActions, surahId, currentAyatId],
   )
 
+  // History icon: 1-2 steps jump straight back to the original spot, 3+ open the
+  // Jump History dialog (MainActivity.kt:1506-1516)
+  const [historyDialogOpen, setHistoryDialogOpen] = useState(false)
+  const handleHistoryClick = useCallback(() => {
+    if (jumpHistory.length === 0) return
+    audioActions.disableAutoTracking()
+    if (jumpHistory.length > 2) {
+      setHistoryDialogOpen(true)
+      return
+    }
+    actions.goToHistoryStep(0)
+  }, [jumpHistory.length, audioActions, actions])
+
+  const handleHistoryStepSelect = useCallback(
+    (index: number) => {
+      audioActions.disableAutoTracking()
+      setHistoryDialogOpen(false)
+      actions.goToHistoryStep(index)
+    },
+    [audioActions, actions],
+  )
+
+  const handleHistoryClear = useCallback(() => {
+    actions.clearHistory()
+    setHistoryDialogOpen(false)
+  }, [actions])
+
+  const handleHistoryDialogClose = useCallback(() => setHistoryDialogOpen(false), [])
+
   const [selectSurahOpen, setSelectSurahOpen] = useState(false)
   const handleSurahChipClick = useCallback(() => setSelectSurahOpen(true), [])
   const handleSelectSurahClose = useCallback(() => setSelectSurahOpen(false), [])
@@ -210,7 +242,8 @@ export function ReaderScreen({ prefs, onPrefsUpdate }: Props) {
   const handleJumpToAyatGo = useCallback(
     (ayatId: number) => {
       const targetSurah = jumpToAyatSurahId ?? surahId
-      actions.goTo(targetSurah, ayatId, true)
+      // The keypad Go never starts a session (MainActivity.kt:1181)
+      actions.goTo(targetSurah, ayatId)
       setJumpToAyatOpen(false)
       setJumpToAyatSurahId(null)
     },
@@ -356,6 +389,15 @@ export function ReaderScreen({ prefs, onPrefsUpdate }: Props) {
           />
         )
       })()}
+      {historyDialogOpen && (
+        <JumpHistoryDialog
+          history={jumpHistory}
+          surahs={state.surahs}
+          onSelect={handleHistoryStepSelect}
+          onClear={handleHistoryClear}
+          onClose={handleHistoryDialogClose}
+        />
+      )}
       <TopBar
         surahId={surahId}
         pageIndex={pageIndex}
@@ -374,7 +416,7 @@ export function ReaderScreen({ prefs, onPrefsUpdate }: Props) {
         onNextPage={actions.nextPage}
         onSurahChipClick={handleSurahChipClick}
         onAyatChipClick={handleAyatChipClick}
-        onHistoryClick={actions.handleHistoryClick}
+        onHistoryClick={handleHistoryClick}
         onToggleAudio={handleToggleAudio}
         onToggleAutoTracking={handleToggleAutoTracking}
       />

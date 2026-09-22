@@ -1,0 +1,106 @@
+/* Surface(shape = RoundedCornerShape(16.dp), color = theme.bg,
+   shadowElevation = 8.dp) + Column(top 24, bottom 12, start/end 24) */
+.dialog {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  margin: 0;
+  box-sizing: border-box;
+  border: none;
+  border-radius: 16px;
+  padding: 24px 24px 12px;
+  width: 80vw;
+  min-width: 280px;
+  max-width: 560px;
+  display: flex;
+  flex-direction: column;
+  background: var(--color-bg);
+  box-shadow: 0 5px 5px -3px rgba(0, 0, 0, 0.2), 0 8px 10px 1px rgba(0, 0, 0, 0.14),
+    0 3px 14px 2px rgba(0, 0, 0, 0.12);
+}
+
+.dialog::backdrop {
+  background: rgba(0, 0, 0, 0.32);
+}
+
+/* 20 sp, bold, theme.primary */
+.title {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--color-primary);
+  font-family: var(--font-ui);
+  flex-shrink: 0;
+}
+
+/* heightIn(max = 400.dp), after a 16 dp Spacer */
+.list {
+  margin-top: 16px;
+  /* basis auto + min-height 0: WebKit collapses flex-basis 0 lists in an auto-height dialog */
+  flex: 0 1 auto;
+  min-height: 0;
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+/* ListItem with a transparent container: 16 dp side padding, and the M3
+   two-line minimum height of 72 dp, which is what the Android rows measure */
+.row {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  width: 100%;
+  box-sizing: border-box;
+  min-height: 72px;
+  padding: 8px 16px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+}
+
+/* headlineContent — M3 bodyLarge (16 sp / 24 sp) */
+.stepLabel {
+  font-size: 1rem;
+  line-height: 1.5rem;
+  font-weight: 700;
+  color: var(--color-primary);
+  font-family: var(--font-ui);
+}
+
+/* supportingContent — M3 bodyMedium (14 sp / 20 sp), Color.DarkGray */
+.stepSpot {
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+  color: #444444;
+  font-family: var(--font-ui);
+}
+
+/* HorizontalDivider(color = Color.LightGray.copy(alpha = 0.5f)) */
+.divider {
+  margin: 0;
+  border: none;
+  border-top: 1px solid rgba(204, 204, 204, 0.5);
+}
+
+.footer {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  margin-top: 16px;
+  flex-shrink: 0;
+}
+
+.textBtn {
+  background: none;
+  border: none;
+  padding: 10px 12px;
+  color: var(--color-primary);
+  font-size: 0.875rem;
+  font-weight: 500;
+  font-family: var(--font-ui);
+  letter-spacing: 0.04em;
+  cursor: pointer;
+}

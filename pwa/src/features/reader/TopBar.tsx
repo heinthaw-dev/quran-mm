@@ -1,6 +1,6 @@
 // Ports: BlueprintTopBar composable
 import type { SurahMeta } from '../../data/types.ts'
-import type { JumpTarget } from '../../hooks/useSurah.ts'
+import type { JumpStep } from '../../hooks/useSurah.ts'
 import {
   MenuIcon,
   ChevronLeftIcon,
@@ -20,7 +20,7 @@ interface Props {
   currentAyatLabel: string
   totalAyats: number
   surah: SurahMeta | undefined
-  jumpHistory: JumpTarget[]
+  jumpHistory: JumpStep[]
   audioPlaying: boolean
   autoTracking: boolean
   audioAvailable: boolean
@@ -156,6 +156,7 @@ export function TopBar({
         <button
           className={styles.iconBtn32}
           onClick={onHistoryClick}
+          disabled={!historyActive}
           aria-label="History"
           type="button"
         >

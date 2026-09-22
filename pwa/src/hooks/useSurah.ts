@@ -4,9 +4,11 @@ import { loadArabicAyats, getArabicAyat } from '../data/arabic.ts'
 import { buildNotesIndex, ayatIdsOf, ayatLabel } from '../data/csv.ts'
 import type { SurahMeta, AyatRow, NoteRow, ArabicAyat, FontScale, AppPrefs } from '../data/types.ts'
 
-export interface JumpTarget {
+// Ports: JumpStep (QuranModels.kt:15). Android also stores the card list's
+// scroll index/offset to restore it on return; the PWA lands at the card top.
+export interface JumpStep {
   surahId: number
-  pageIndex: number
+  ayatId: number
 }
 
 export interface SurahState {
@@ -19,13 +21,13 @@ export interface SurahState {
   arabicFontScale: FontScale
   myanmarFontScale: FontScale
   noteFontScale: FontScale
-  jumpHistory: JumpTarget[]
+  jumpHistory: JumpStep[]
   loading: boolean
   error: Error | null
 }
 
 export interface SurahActions {
-  goTo: (surahId: number, ayatId: number, pushHistory?: boolean) => void
+  goTo: (surahId: number, ayatId: number) => void
   prevSurah: () => void
   nextSurah: () => void
   prevPage: () => void
@@ -33,7 +35,9 @@ export interface SurahActions {
   setArabicScale: (s: FontScale) => void
   setMyanmarScale: (s: FontScale) => void
   setNoteScale: (s: FontScale) => void
-  handleHistoryClick: () => void
+  jumpFromLink: (surahId: number, ayatId: number) => void
+  goToHistoryStep: (index: number) => void
+  clearHistory: () => void
   scaleArabic: (delta: -1 | 1) => void
   scaleMyanmar: (delta: -1 | 1) => void
   scaleNote: (delta: -1 | 1) => void
@@ -102,7 +106,10 @@ export function useSurah(
   const [arabicFontScale, setArabicFontScaleState] = useState<FontScale>(prefs.arabicFontScale)
   const [myanmarFontScale, setMyanmarFontScaleState] = useState<FontScale>(prefs.myanmarFontScale)
   const [noteFontScale, setNoteFontScaleState] = useState<FontScale>(prefs.noteFontScale)
-  const [jumpHistory, setJumpHistory] = useState<JumpTarget[]>([])
+  const [jumpHistory, setJumpHistory] = useState<JumpStep[]>([])
+  // MainActivity.kt:247 — isHistoryActive. A flag, not a size check, is what
+  // marks "inside a jump"; only a [surah:ayat] link sets it.
+  const historyActive = useRef(false)
   const [error, setError] = useState<Error | null>(null)
 
   // loading is derived — true whenever surahId doesn't match what's loaded
@@ -143,10 +150,7 @@ export function useSurah(
   )
 
   const goTo = useCallback(
-    (newSurahId: number, newAyatId: number, pushHistory = false) => {
-      if (pushHistory) {
-        setJumpHistory((h) => [...h, { surahId, pageIndex: pageData.pageIndex }])
-      }
+    (newSurahId: number, newAyatId: number) => {
       if (newSurahId !== surahId) {
         initialAyat.current = newAyatId
         setSurahId(newSurahId)
@@ -158,7 +162,18 @@ export function useSurah(
       }
       scheduleSave(newSurahId, newAyatId)
     },
-    [surahId, pageData.pageIndex, scheduleSave],
+    [surahId, scheduleSave],
+  )
+
+  // MainActivity.kt:400 — the ayat a page reports to history: the first id of a
+  // combined row ("1-2" → 1), else the row's own id.
+  const ayatIdAt = useCallback(
+    (index: number): number | null => {
+      const row = pageData.ayats[index]
+      if (!row) return null
+      return ayatIdsOf(row)[0] ?? row.ayatId
+    },
+    [pageData.ayats],
   )
 
   const prevSurah = useCallback(() => {
@@ -197,22 +212,67 @@ export function useSurah(
     }
   }, [pageData.pageIndex, pageData.ayats, prefs.continuousSwiping, surahId, nextSurah, scheduleSave])
 
-  const handleHistoryClick = useCallback(() => {
-    if (jumpHistory.length === 0) return
-    if (jumpHistory.length <= 2) {
-      const origin = jumpHistory[0]
-      if (origin) {
-        if (origin.surahId !== surahId) {
-          initialAyat.current = pageData.ayats[origin.pageIndex]?.ayatId ?? 1
-          setSurahId(origin.surahId)
-        } else {
-          setPageData((prev) => ({ ...prev, pageIndex: origin.pageIndex }))
-        }
-        setJumpHistory([])
+  // MainActivity.kt:397-403 (activateHistoryIfNeeded) + :587-594. Only a
+  // [surah:ayat] link starts a session; its first step is the pre-jump spot.
+  const jumpFromLink = useCallback(
+    (targetSurah: number, targetAyat: number) => {
+      if (!historyActive.current) {
+        historyActive.current = true
+        setJumpHistory([{ surahId, ayatId: ayatIdAt(pageData.pageIndex) ?? 1 }])
       }
-    }
-    // >2: caller should open Jump History dialog
-  }, [jumpHistory, surahId, pageData.ayats])
+      goTo(targetSurah, targetAyat)
+    },
+    [surahId, pageData.pageIndex, ayatIdAt, goTo],
+  )
+
+  // MainActivity.kt:405-428 — while a session is active, every page the reader
+  // settles on becomes a step (a repeat of an earlier step moves to the end);
+  // settling back on the original spot ends the session and wipes the history.
+  useEffect(() => {
+    if (!historyActive.current || loading) return
+    const ayatId = ayatIdAt(pageData.pageIndex)
+    const first = jumpHistory[0]
+    if (ayatId === null || !first) return
+    const last = jumpHistory[jumpHistory.length - 1]
+    const atOrigin = first.surahId === surahId && first.ayatId === ayatId
+    const atLast = last !== undefined && last.surahId === surahId && last.ayatId === ayatId
+    if (!atOrigin && atLast) return
+    const timer = setTimeout(() => {
+      if (atOrigin) {
+        historyActive.current = false
+        setJumpHistory([])
+        return
+      }
+      const others = jumpHistory
+        .slice(1)
+        .filter((step) => !(step.surahId === surahId && step.ayatId === ayatId))
+      setJumpHistory([first, ...others, { surahId, ayatId }])
+    }, 500)
+    return () => clearTimeout(timer)
+  }, [surahId, pageData.pageIndex, ayatIdAt, jumpHistory, loading])
+
+  // MainActivity.kt:1282-1292 (dialog row) and :1506-1516 (icon shortcut, which
+  // is step 0). Step 0 ends the session; a later step truncates the stack to it.
+  const goToHistoryStep = useCallback(
+    (index: number) => {
+      const step = jumpHistory[index]
+      if (!step) return
+      if (index === 0) {
+        historyActive.current = false
+        setJumpHistory([])
+      } else {
+        setJumpHistory((h) => h.slice(0, index + 1))
+      }
+      goTo(step.surahId, step.ayatId)
+    },
+    [jumpHistory, goTo],
+  )
+
+  // MainActivity.kt:1299 — "Clear History" ends the session without navigating.
+  const clearHistory = useCallback(() => {
+    historyActive.current = false
+    setJumpHistory([])
+  }, [])
 
   const getCurrentRow = useCallback(
     (): AyatRow | undefined => pageData.ayats[pageData.pageIndex],
@@ -334,7 +394,9 @@ export function useSurah(
     setArabicScale: setArabicFontScaleState,
     setMyanmarScale: setMyanmarFontScaleState,
     setNoteScale: setNoteFontScaleState,
-    handleHistoryClick,
+    jumpFromLink,
+    goToHistoryStep,
+    clearHistory,
     scaleArabic,
     scaleMyanmar,
     scaleNote,
