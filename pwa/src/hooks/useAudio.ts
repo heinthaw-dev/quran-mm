@@ -6,9 +6,21 @@ import { getAudioObjectUrl } from '../data/audioCache.ts'
 
 interface UseAudioOptions {
   surahId: number
-  currentAyatId: number
+  /** First ayat id of the surah — 0 for surah 1, whose ayat 0 is the Bismillah */
+  firstAyat: number
   totalAyats: number
   onAutoTrack: (surah: number, ayat: number) => void
+}
+
+// The surah playlist opens with the Bismillah, always folder 001 whatever the
+// surah is playing (MainActivity.kt:828-839).
+const BISMILLAH_SURAH = 1
+const BISMILLAH_AYAT = 0
+
+// Surah 1 already carries 001000.mp3 as its own ayat 0, and surah 9 has no
+// Bismillah at all (MainActivity.kt:828).
+function hasBismillah(surah: number): boolean {
+  return surah !== 1 && surah !== 9
 }
 
 export interface AudioState {
@@ -33,7 +45,7 @@ export interface AudioActions {
 
 export function useAudio({
   surahId,
-  currentAyatId,
+  firstAyat,
   totalAyats,
   onAutoTrack,
 }: UseAudioOptions): [AudioState, AudioActions] {
@@ -54,6 +66,13 @@ export function useAudio({
   const autoTrackingRef = useRef(false)
   const totalAyatsRef = useRef(totalAyats)
   const onAutoTrackRef = useRef(onAutoTrack)
+  // The Bismillah head of the playlist is loaded; activeAyat already points at
+  // the ayat that follows it, so the highlight rests there while it plays
+  // (MainActivity.kt:834 vs :842).
+  const bismillahRef = useRef(false)
+  // The playlist ran to its end. Android's finished player restarts at item 0,
+  // i.e. the Bismillah (MainActivity.kt:864-866), so the next tap cold-starts.
+  const queueEndedRef = useRef(false)
   // The blob URL currently assigned to the element, revoked when replaced.
   const objectUrlRef = useRef<string | null>(null)
   // Bumped per load so a stale fetch can't overwrite a newer one's src.
@@ -64,10 +83,17 @@ export function useAudio({
   autoTrackingRef.current = autoTracking
 
   // Fetch the ayat (cache first), swap the element's src to a blob URL, play.
-  const loadAndPlay = useCallback(async (el: HTMLAudioElement, surah: number, ayat: number) => {
+  const loadAndPlay = useCallback(async (
+    el: HTMLAudioElement,
+    surah: number,
+    ayat: number,
+    bismillah = false,
+  ) => {
     const gen = ++loadGenRef.current
     try {
-      const objectUrl = await getAudioObjectUrl(surah, ayat)
+      const objectUrl = bismillah
+        ? await getAudioObjectUrl(BISMILLAH_SURAH, BISMILLAH_AYAT)
+        : await getAudioObjectUrl(surah, ayat)
       if (gen !== loadGenRef.current) {
         URL.revokeObjectURL(objectUrl)
         return
@@ -85,6 +111,13 @@ export function useAudio({
     if (!audioEl.current) {
       const el = new Audio()
       el.onended = () => {
+        if (bismillahRef.current) {
+          // Head done — fall through into the surah's own first ayat, already
+          // held in activeAyatRef
+          bismillahRef.current = false
+          void loadAndPlay(el, activeSurahRef.current!, activeAyatRef.current!)
+          return
+        }
         if (!surahModeRef.current) {
           setPlaying(false)
           // Track finished: the card's "play surah from here" button greys out
@@ -97,6 +130,7 @@ export function useAudio({
           setPlaying(false)
           surahModeRef.current = false
           setIsSurahMode(false)
+          queueEndedRef.current = true
           return
         }
         const s = activeSurahRef.current!
@@ -112,20 +146,27 @@ export function useAudio({
     return audioEl.current
   }
 
-  const startPlayback = useCallback((surah: number, ayat: number, surahMode: boolean) => {
+  const startPlayback = useCallback((
+    surah: number,
+    ayat: number,
+    surahMode: boolean,
+    bismillah = false,
+  ) => {
     const el = getAudio()
     el.pause()
 
     activeSurahRef.current = surah
     activeAyatRef.current = ayat
     surahModeRef.current = surahMode
+    bismillahRef.current = bismillah
+    queueEndedRef.current = false
 
     setActiveSurah(surah)
     setActiveAyat(ayat)
     setIsSurahMode(surahMode)
     setPlaying(true)
 
-    void loadAndPlay(el, surah, ayat)
+    void loadAndPlay(el, surah, ayat, bismillah)
   }, [loadAndPlay]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const playAyat = useCallback((surah: number, ayat: number) => {
@@ -138,7 +179,10 @@ export function useAudio({
   // "Play from here" restarts at this ayat as a surah playlist and enables
   // auto-tracking; it also clears loadedAyatIndex (MainActivity.kt:1611-1614)
   const playSurahFrom = useCallback((surah: number, ayat: number) => {
-    startPlayback(surah, ayat, true)
+    // Android seeks into the same full playlist, and the Bismillah shares ayat
+    // 1's page, so starting from ayat 1 lands on the Bismillah, not the ayat
+    // (MainActivity.kt:1663, 1700-1701)
+    startPlayback(surah, ayat, true, hasBismillah(surah) && ayat === 1)
     setAutoTracking(true)
     setLoadedAyat(null)
   }, [startPlayback])
@@ -148,14 +192,25 @@ export function useAudio({
     if (playing && el) {
       el.pause()
       setPlaying(false)
-    } else if (!playing && el && activeSurahRef.current !== null) {
+      return
+    }
+    // Only a live playlist for this surah resumes. Anything else — a finished
+    // playlist, a single-ayat track, another surah — rebuilds from the top,
+    // which is what Android's empty/idle surahPlayer does (MainActivity.kt:820).
+    const resumable =
+      el !== null &&
+      surahModeRef.current &&
+      !queueEndedRef.current &&
+      activeSurahRef.current === surahId
+    if (resumable) {
       el.play().catch(() => {})
       setPlaying(true)
-    } else {
-      // No prior audio — start surah from current page ayat
-      startPlayback(surahId, currentAyatId, true)
+      return
     }
-  }, [playing, surahId, currentAyatId, startPlayback])
+    // Cold start: Bismillah, then the surah from its first ayat — never from
+    // the page the user is on (MainActivity.kt:828-855)
+    startPlayback(surahId, firstAyat, true, hasBismillah(surahId))
+  }, [playing, surahId, firstAyat, startPlayback])
 
   const toggleAutoTracking = useCallback(() => {
     setAutoTracking((prev) => !prev)
@@ -190,6 +245,8 @@ export function useAudio({
       setActiveAyat(null)
       activeSurahRef.current = null
       surahModeRef.current = false
+      bismillahRef.current = false
+      queueEndedRef.current = false
       setLoadedAyat(null)
     }
     setAutoTracking(false)

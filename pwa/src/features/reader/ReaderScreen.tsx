@@ -171,7 +171,7 @@ export function ReaderScreen({ prefs, onPrefsUpdate }: Props) {
 
   const [audioState, audioActions] = useAudio({
     surahId,
-    currentAyatId,
+    firstAyat: state.ayats[0]?.ayatId ?? 1,
     totalAyats,
     onAutoTrack: handleAutoTrack,
   })
