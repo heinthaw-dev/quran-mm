@@ -11,6 +11,8 @@
      Compose library defaults apply: onSurfaceVariant, and Color.Gray. */
   --color-dialog-text: #49454F;
   --color-dialog-muted: #888888;
+  /* Disabled icon tint — Compose Color.LightGray.copy(alpha = 0.5f) */
+  --color-icon-disabled: rgba(211, 211, 211, 0.5);
 
   /* Top bar shadow (4 dp = 4px) */
   --shadow-topbar: 0 4px 4px rgba(0,0,0,0.12);

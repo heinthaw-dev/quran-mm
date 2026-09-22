@@ -17,6 +17,9 @@ export interface AudioState {
   activeAyat: number | null
   isSurahMode: boolean
   autoTracking: boolean
+  /** Ayat whose single-ayat audio is loaded, i.e. Android's loadedAyatIndex
+   *  (MainActivity.kt:784). Gates the card's "play surah from here" button. */
+  loadedAyat: number | null
 }
 
 export interface AudioActions {
@@ -40,6 +43,7 @@ export function useAudio({
   const [activeAyat, setActiveAyat] = useState<number | null>(null)
   const [isSurahMode, setIsSurahMode] = useState(false)
   const [autoTracking, setAutoTracking] = useState(false)
+  const [loadedAyat, setLoadedAyat] = useState<number | null>(null)
 
   // Refs so onended closure always sees latest values without re-attaching.
   // Updated synchronously on every render (not via useEffect) to eliminate
@@ -83,6 +87,9 @@ export function useAudio({
       el.onended = () => {
         if (!surahModeRef.current) {
           setPlaying(false)
+          // Track finished: the card's "play surah from here" button greys out
+          // again (MainActivity.kt:326-329)
+          setLoadedAyat(null)
           return
         }
         const nextAyat = (activeAyatRef.current ?? 0) + 1
@@ -124,12 +131,16 @@ export function useAudio({
   const playAyat = useCallback((surah: number, ayat: number) => {
     startPlayback(surah, ayat, false)
     setAutoTracking(false)
+    // Arms this ayat's "play surah from here" button (MainActivity.kt:784)
+    setLoadedAyat(ayat)
   }, [startPlayback])
 
-  // "Play from here" enables auto-tracking (MainActivity.kt:1636)
+  // "Play from here" restarts at this ayat as a surah playlist and enables
+  // auto-tracking; it also clears loadedAyatIndex (MainActivity.kt:1611-1614)
   const playSurahFrom = useCallback((surah: number, ayat: number) => {
     startPlayback(surah, ayat, true)
     setAutoTracking(true)
+    setLoadedAyat(null)
   }, [startPlayback])
 
   const togglePlay = useCallback(() => {
@@ -179,6 +190,7 @@ export function useAudio({
       setActiveAyat(null)
       activeSurahRef.current = null
       surahModeRef.current = false
+      setLoadedAyat(null)
     }
     setAutoTracking(false)
   }, [surahId])
@@ -189,7 +201,7 @@ export function useAudio({
     if (objectUrlRef.current) URL.revokeObjectURL(objectUrlRef.current)
   }, [])
 
-  const state: AudioState = { playing, activeSurah, activeAyat, isSurahMode, autoTracking }
+  const state: AudioState = { playing, activeSurah, activeAyat, isSurahMode, autoTracking, loadedAyat }
   const actions: AudioActions = { playAyat, playSurahFrom, togglePlay, toggleAutoTracking, disableAutoTracking, isPlayingAyat }
   return [state, actions]
 }

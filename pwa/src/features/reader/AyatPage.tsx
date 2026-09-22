@@ -21,6 +21,8 @@ interface Props {
   myanmarFontScale: FontScale
   noteFontScale: FontScale
   audioPlaying: boolean
+  /** This card's ayat is the one whose single-ayat audio is loaded, i.e.
+   *  Android's `loadedAyatIndex == page` (MainActivity.kt:1675) */
   audioLoaded: boolean
   onPlayAyat: () => void
   onPlaySurahFromHere: () => void
@@ -132,9 +134,14 @@ export function AyatPage({
               onClick={onPlaySurahFromHere}
               label="Play surah from here"
               disabled={!audioLoaded}
-              opacity={audioLoaded ? 1 : 0.3}
+              opacity={1}
             >
-              <PlaylistPlayIcon size={26} color="var(--color-primary)" />
+              {/* Disabled tint is Color.LightGray at 50% alpha, not a faded
+                  primary (MainActivity.kt:1899) */}
+              <PlaylistPlayIcon
+                size={26}
+                color={audioLoaded ? 'var(--color-primary)' : 'var(--color-icon-disabled)'}
+              />
             </IconBtn>
             <IconBtn size={20} onClick={() => copyText(arabicText)} label="Copy Arabic" opacity={1}>
               <ContentCopyIcon size={20} color="var(--color-primary)" />

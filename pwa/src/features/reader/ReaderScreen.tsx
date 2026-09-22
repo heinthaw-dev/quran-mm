@@ -446,7 +446,7 @@ export function ReaderScreen({ prefs, onPrefsUpdate }: Props) {
                 myanmarFontScale={myanmarFontScale}
                 noteFontScale={noteFontScale}
                 audioPlaying={audioActions.isPlayingAyat(surahId, prevRow.ayatId)}
-                audioLoaded={true}
+                audioLoaded={audioState.loadedAyat === prevRow.ayatId}
                 onPlayAyat={() => audioActions.playAyat(surahId, prevRow.ayatId)}
                 onPlaySurahFromHere={() => audioActions.playSurahFrom(surahId, prevRow.ayatId)}
                 onScaleArabic={actions.scaleArabic}
@@ -471,7 +471,7 @@ export function ReaderScreen({ prefs, onPrefsUpdate }: Props) {
                 myanmarFontScale={myanmarFontScale}
                 noteFontScale={noteFontScale}
                 audioPlaying={audioActions.isPlayingAyat(surahId, currentAyatId)}
-                audioLoaded={true}
+                audioLoaded={audioState.loadedAyat === currentAyatId}
                 onPlayAyat={handlePlayAyat}
                 onPlaySurahFromHere={handlePlaySurahFromHere}
                 onScaleArabic={actions.scaleArabic}
@@ -494,7 +494,7 @@ export function ReaderScreen({ prefs, onPrefsUpdate }: Props) {
                 myanmarFontScale={myanmarFontScale}
                 noteFontScale={noteFontScale}
                 audioPlaying={audioActions.isPlayingAyat(surahId, nextRow.ayatId)}
-                audioLoaded={true}
+                audioLoaded={audioState.loadedAyat === nextRow.ayatId}
                 onPlayAyat={() => audioActions.playAyat(surahId, nextRow.ayatId)}
                 onPlaySurahFromHere={() => audioActions.playSurahFrom(surahId, nextRow.ayatId)}
                 onScaleArabic={actions.scaleArabic}
