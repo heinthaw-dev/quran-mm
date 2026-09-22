@@ -35,8 +35,10 @@ export default defineConfig({
       includeAssets: ['icons/apple-touch-icon.png', 'icons/icon-192.png', 'icons/icon-512.png'],
       manifest: {
         name: 'Quran MM (KW)',
-        // Newline so launchers that honour it stack the label: "Quran MM" / "(KW)".
-        short_name: 'Quran MM\n(KW)',
+        // Launchers strip "\n" from the label, so the wrap is done with spacing:
+        // a non-breaking space keeps "Quran MM" together and the plain space
+        // before "(KW)" is the only break point, giving "Quran MM" / "(KW)".
+        short_name: 'Quran MM (KW)',
         description: 'Myanmar Quran Translation',
         theme_color: '#4B559C',
         background_color: '#F0F4F8',
