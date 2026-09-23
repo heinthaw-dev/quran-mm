@@ -2,7 +2,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import type { AppPrefs, AppTheme } from '../../data/types.ts'
-import { useSurah, ayatLabel } from '../../hooks/useSurah.ts'
+import { useSurah, ayatLabel, ayatIdsOf } from '../../hooks/useSurah.ts'
 import { useAudio } from '../../hooks/useAudio.ts'
 import { useAudioDownload } from '../../hooks/useAudioDownload.ts'
 import type { SurahDownloadJob } from '../../data/audioDownload.ts'
@@ -18,6 +18,10 @@ import { JumpHistoryDialog } from '../dialog-jump-history/JumpHistoryDialog.tsx'
 import { TopBar } from './TopBar.tsx'
 import { AyatPage } from './AyatPage.tsx'
 import styles from './ReaderScreen.module.css'
+
+// Slower than the 0.28s snap that finishes a hand swipe: nobody's finger is on
+// the screen, so the turn has to read as a turn on its own.
+const AUTO_SWIPE_MS = 500
 
 interface Props {
   prefs: AppPrefs
@@ -59,7 +63,14 @@ export function ReaderScreen({ prefs, onPrefsUpdate }: Props) {
 
   // Sliding pager — 3 slides (prev, current, next) move together during drag.
   // Phase drives the track's translateX and transition presence.
-  type SwipePhase = 'idle' | 'dragging' | 'snapping-next' | 'snapping-prev' | 'snapping-back'
+  // 'auto-next' is the same forward snap, driven by audio auto-tracking.
+  type SwipePhase =
+    | 'idle'
+    | 'dragging'
+    | 'snapping-next'
+    | 'snapping-prev'
+    | 'snapping-back'
+    | 'auto-next'
   const touchStartX = useRef<number | null>(null)
   const touchStartY = useRef<number | null>(null)
   // 'pending' until we know direction; then locked for the rest of the touch.
@@ -137,8 +148,9 @@ export function ReaderScreen({ prefs, onPrefsUpdate }: Props) {
     [],
   )
 
-  const handleTransitionEnd = useCallback(() => {
-    if (phase === 'snapping-next') {
+  const handleTransitionEnd = useCallback((e: React.TransitionEvent) => {
+    if (e.target !== e.currentTarget) return // ignore transitions bubbling up from a card
+    if (phase === 'snapping-next' || phase === 'auto-next') {
       setPhase('idle')
       actions.nextPage()
     } else if (phase === 'snapping-prev') {
@@ -164,10 +176,39 @@ export function ReaderScreen({ prefs, onPrefsUpdate }: Props) {
   const handleMenuClick = useCallback(() => setDrawerOpen(true), [])
   const handleDrawerClose = useCallback(() => setDrawerOpen(false), [])
 
+  // Auto-tracking walks the surah one ayat at a time, so most of its moves land
+  // on the very next page. Glide there like a hand swipe instead of cutting —
+  // a jump-cut leaves no sign the page turned. Anything else still jumps.
   const handleAutoTrack = useCallback(
-    (surah: number, ayat: number) => { actions.goTo(surah, ayat) },
-    [actions],
+    (surah: number, ayat: number) => {
+      const rowAfter = state.ayats[pageIndex + 1]
+      if (
+        phase === 'idle' &&
+        surah === surahId &&
+        rowAfter !== undefined &&
+        ayatIdsOf(rowAfter).includes(ayat)
+      ) {
+        setPhase('auto-next')
+        return
+      }
+      if (phase !== 'idle') setPhase('idle')
+      actions.goTo(surah, ayat)
+    },
+    [phase, surahId, pageIndex, state.ayats, actions],
   )
+
+  // Commit the auto swipe even if transitionend never arrives (hidden tab,
+  // interrupted transition), so playback can't outrun the page.
+  const actionsRef = useRef(actions)
+  actionsRef.current = actions
+  useEffect(() => {
+    if (phase !== 'auto-next') return
+    const timer = setTimeout(() => {
+      setPhase('idle')
+      actionsRef.current.nextPage()
+    }, AUTO_SWIPE_MS + 120)
+    return () => clearTimeout(timer)
+  }, [phase])
 
   const [audioState, audioActions] = useAudio({
     surahId,
@@ -320,15 +361,17 @@ export function ReaderScreen({ prefs, onPrefsUpdate }: Props) {
   // Snapping-next targets -2*slotWidth, snapping-prev targets 0, back to -slotWidth.
   const w = slotWidth.current
   const trackX =
-    phase === 'snapping-next'
+    phase === 'snapping-next' || phase === 'auto-next'
       ? -w * 2
       : phase === 'snapping-prev'
         ? 0
         : -w + (phase === 'dragging' ? dragOffset : 0)
   const trackTransition =
-    phase === 'snapping-next' || phase === 'snapping-prev' || phase === 'snapping-back'
-      ? 'transform 0.28s ease'
-      : 'none'
+    phase === 'auto-next'
+      ? `transform ${AUTO_SWIPE_MS}ms ease-in-out`
+      : phase === 'snapping-next' || phase === 'snapping-prev' || phase === 'snapping-back'
+        ? 'transform 0.28s ease'
+        : 'none'
 
   return (
     <div

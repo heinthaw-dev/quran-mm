@@ -68,8 +68,8 @@ const NOTE_LABEL_RE = /^\[\d+[a-zA-Z]?\]/gm
 
 export { FOOTNOTE_MARKER_RE, CROSSREF_RE, NOTE_LABEL_RE }
 
-// Re-exported so feature components get the ayat label without importing data/
-export { ayatLabel }
+// Re-exported so feature components get the ayat helpers without importing data/
+export { ayatLabel, ayatIdsOf }
 
 function toEasternArabicNumeral(n: number): string {
   return String(n)
