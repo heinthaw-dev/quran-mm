@@ -13,7 +13,7 @@ One row per screen, notable state, or feature. Status: `todo` · `in-progress` �
 | sync-assets script | done | Copies 235 CSVs + downloads fonts |
 | CSV parsers + unit tests | done | 11 tests pass; handles 217a/217b, missing 171, CRLF, LF |
 | Visual check script | done | pixelmatch, 1% limit; identical→PASS, shifted→FAIL verified |
-| PWA setup | done | vite-plugin-pwa, manifest, icons; CSV set fetched by dataCache.ts (visible splash progress) instead of silent precache, still served via runtime CacheFirst route |
+| PWA setup | done | vite-plugin-pwa, manifest, icons; CSV set fetched by dataCache.ts (visible splash progress) instead of silent precache, still served via runtime CacheFirst route. 2026-09-23: `short_name` is `Quran (KW)` — launchers, not the manifest, decide how many lines an icon label gets (Pixel/Launcher3 ellipsize on one line, One UI and Nova wrap to two), so the label is kept short enough to fit one line uncut everywhere. `name` and `<title>` keep the full `Quran MM (KW)` for the install prompt, app switcher and browser tab. An installed icon keeps its old label until the WebAPK updates (reinstall to see it at once; on iOS delete and re-add) |
 | App shell + routes | done | BrowserRouter; `/` reader, `/s/:surah/:ayat`, `/info/:page` |
 | Storage persist | done | `navigator.storage.persist()` on startup |
 
