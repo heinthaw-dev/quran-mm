@@ -50,7 +50,10 @@ export interface AudioState {
 }
 
 export interface AudioActions {
-  playAyat: (surah: number, ayat: number) => void
+  /** `restIds`: further ayat ids to auto-advance through after `ayat`, for a
+   *  combined multi_ayats row (MainActivity.kt:788-796 queues every id in the
+   *  range on the same player before a single play()). */
+  playAyat: (surah: number, ayat: number, restIds?: number[]) => void
   playSurahFrom: (surah: number, ayat: number) => void
   togglePlay: () => void
   toggleAutoTracking: () => void
@@ -79,6 +82,7 @@ export function useAudio({
   const surahModeRef = useRef(false)
   const activeSurahRef = useRef<number | null>(null)
   const activeAyatRef = useRef<number | null>(null)
+  const loadedAyatRef = useRef<number | null>(null)
   const autoTrackingRef = useRef(false)
   const playingRef = useRef(false)
   const firstAyatRef = useRef(firstAyat)
@@ -101,8 +105,16 @@ export function useAudio({
   // the screen comes back on.
   const prefetchRef = useRef<{ key: string; url: string } | null>(null)
   const prefetchGenRef = useRef(0)
+  // Remaining ids of a combined multi_ayats row's single-ayat playback (the
+  // small play button), queued after the one currently loaded. Public
+  // activeAyat stays pinned to the row's own anchor id throughout — the icon
+  // must read as playing for the whole range, not just its first file
+  // (MainActivity.kt:1712, isAyatPlaying stays true across ExoPlayer's own
+  // playlist transitions).
+  const ayatQueueRef = useRef<number[]>([])
 
   playingRef.current = playing
+  loadedAyatRef.current = loadedAyat
   firstAyatRef.current = firstAyat
   totalAyatsRef.current = totalAyats
   onAutoTrackRef.current = onAutoTrack
@@ -205,6 +217,13 @@ export function useAudio({
           return
         }
         if (!surahModeRef.current) {
+          const queue = ayatQueueRef.current
+          if (queue.length > 0) {
+            const [next, ...rest] = queue
+            ayatQueueRef.current = rest
+            void loadAndPlay(el, activeSurahRef.current!, next!)
+            return
+          }
           setPlaying(false)
           // Track finished: the card's "play surah from here" button greys out
           // again (MainActivity.kt:326-329)
@@ -242,6 +261,7 @@ export function useAudio({
     const el = getAudio()
     el.pause()
     discardPrefetch()
+    ayatQueueRef.current = []
 
     activeSurahRef.current = surah
     activeAyatRef.current = ayat
@@ -257,8 +277,34 @@ export function useAudio({
     void loadAndPlay(el, surah, ayat, bismillah)
   }, [loadAndPlay, discardPrefetch]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  const playAyat = useCallback((surah: number, ayat: number) => {
+  const playAyat = useCallback((surah: number, ayat: number, restIds: number[] = []) => {
+    // Same ayat (or its range) still loaded from before: act as a real
+    // play/pause toggle instead of reloading (MainActivity.kt:776-813).
+    const el = audioEl.current
+    const sameTrack =
+      el !== null &&
+      !surahModeRef.current &&
+      activeSurahRef.current === surah &&
+      activeAyatRef.current === ayat &&
+      loadedAyatRef.current === ayat
+
+    if (sameTrack && el) {
+      if (playingRef.current) {
+        el.pause()
+        setPlaying(false)
+        return
+      }
+      // Paused mid-track (not ended — ending clears loadedAyat, see onended):
+      // resume with Android's 1.5s rewind, not the exact pause point
+      // (MainActivity.kt:804-808).
+      el.currentTime = Math.max(0, el.currentTime - 1.5)
+      void Promise.resolve(el.play()).catch(() => { setPlaying(false) })
+      setPlaying(true)
+      return
+    }
+
     startPlayback(surah, ayat, false)
+    ayatQueueRef.current = restIds
     setAutoTracking(false)
     // Arms this ayat's "play surah from here" button (MainActivity.kt:784)
     setLoadedAyat(ayat)

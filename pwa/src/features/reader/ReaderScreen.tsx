@@ -253,8 +253,10 @@ export function ReaderScreen({ prefs, onPrefsUpdate }: Props) {
   const handleToggleAudio = useCallback(() => { audioActions.togglePlay() }, [audioActions])
   const handleToggleAutoTracking = useCallback(() => { audioActions.toggleAutoTracking() }, [audioActions])
   const handlePlayAyat = useCallback(
-    () => { audioActions.playAyat(surahId, currentAyatId) },
-    [audioActions, surahId, currentAyatId],
+    // Ids after the row's own, for the small play button to queue in sequence
+    // (MainActivity.kt:788-796) — e.g. [2] for a "1-2" row, [] for a single ayat.
+    () => { audioActions.playAyat(surahId, currentAyatId, currentRow ? ayatIdsOf(currentRow).slice(1) : []) },
+    [audioActions, surahId, currentAyatId, currentRow],
   )
   const handlePlaySurahFromHere = useCallback(
     () => { audioActions.playSurahFrom(surahId, currentAyatId) },
@@ -521,7 +523,7 @@ export function ReaderScreen({ prefs, onPrefsUpdate }: Props) {
                 noteFontScale={noteFontScale}
                 audioPlaying={audioActions.isPlayingAyat(surahId, prevRow.ayatId)}
                 audioLoaded={audioState.loadedAyat === prevRow.ayatId}
-                onPlayAyat={() => audioActions.playAyat(surahId, prevRow.ayatId)}
+                onPlayAyat={() => audioActions.playAyat(surahId, prevRow.ayatId, ayatIdsOf(prevRow).slice(1))}
                 onPlaySurahFromHere={() => audioActions.playSurahFrom(surahId, prevRow.ayatId)}
                 onScaleArabic={actions.scaleArabic}
                 onScaleMyanmar={actions.scaleMyanmar}
@@ -569,7 +571,7 @@ export function ReaderScreen({ prefs, onPrefsUpdate }: Props) {
                 noteFontScale={noteFontScale}
                 audioPlaying={audioActions.isPlayingAyat(surahId, nextRow.ayatId)}
                 audioLoaded={audioState.loadedAyat === nextRow.ayatId}
-                onPlayAyat={() => audioActions.playAyat(surahId, nextRow.ayatId)}
+                onPlayAyat={() => audioActions.playAyat(surahId, nextRow.ayatId, ayatIdsOf(nextRow).slice(1))}
                 onPlaySurahFromHere={() => audioActions.playSurahFrom(surahId, nextRow.ayatId)}
                 onScaleArabic={actions.scaleArabic}
                 onScaleMyanmar={actions.scaleMyanmar}

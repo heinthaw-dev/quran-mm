@@ -15,6 +15,7 @@ class FakeAudio {
   static last: FakeAudio | null = null
   src = ''
   paused = false
+  currentTime = 0
   onended: (() => void) | null = null
   play = vi.fn(async () => {})
   pause = vi.fn()
@@ -81,6 +82,117 @@ describe('useAudio loadedAyat', () => {
 
     expect(result.current[0].activeAyat).toBe(4)
     expect(result.current[0].playing).toBe(true)
+  })
+})
+
+describe('useAudio playAyat as a play/pause toggle', () => {
+  it('pauses in place instead of restarting, then resumes with a 1.5s rewind', async () => {
+    const { result } = setup()
+
+    act(() => { result.current[1].playAyat(18, 3) })
+    await waitFor(() => expect(FakeAudio.last?.play).toHaveBeenCalled())
+    loaded.mockClear()
+    const el = FakeAudio.last!
+    el.pause.mockClear() // startPlayback's own defensive el.pause() already ran once
+    el.currentTime = 10
+
+    // Tap while playing: pause only, no reload (MainActivity.kt:778-779).
+    act(() => { result.current[1].playAyat(18, 3) })
+    expect(el.pause).toHaveBeenCalledTimes(1)
+    expect(result.current[0].playing).toBe(false)
+    expect(result.current[0].loadedAyat).toBe(3)
+    expect(loaded).not.toHaveBeenCalled()
+
+    // Tap again while paused, same ayat still loaded: rewind 1.5s and resume
+    // in place, no new fetch (MainActivity.kt:804-808).
+    el.play.mockClear()
+    act(() => { result.current[1].playAyat(18, 3) })
+    expect(el.currentTime).toBe(8.5)
+    expect(el.play).toHaveBeenCalledTimes(1)
+    expect(result.current[0].playing).toBe(true)
+    expect(loaded).not.toHaveBeenCalled()
+  })
+
+  it('floors the rewind at 0 instead of going negative', async () => {
+    const { result } = setup()
+
+    act(() => { result.current[1].playAyat(18, 3) })
+    await waitFor(() => expect(FakeAudio.last?.play).toHaveBeenCalled())
+    const el = FakeAudio.last!
+    el.currentTime = 1
+
+    act(() => { result.current[1].playAyat(18, 3) }) // pause
+    act(() => { result.current[1].playAyat(18, 3) }) // resume
+
+    expect(el.currentTime).toBe(0)
+  })
+
+  it('reloads from the start for a different ayat instead of toggling', async () => {
+    const { result } = setup()
+
+    act(() => { result.current[1].playAyat(18, 3) })
+    await waitFor(() => expect(loaded).toHaveBeenCalledWith(18, 3))
+
+    act(() => { result.current[1].playAyat(18, 9) })
+    await waitFor(() => expect(loaded).toHaveBeenCalledWith(18, 9))
+    expect(result.current[0].playing).toBe(true)
+    expect(result.current[0].loadedAyat).toBe(9)
+  })
+
+  it('reloads from the start once a paused ayat has actually ended', async () => {
+    const { result } = setup()
+
+    act(() => { result.current[1].playAyat(18, 3) })
+    await waitFor(() => expect(loaded).toHaveBeenCalledWith(18, 3))
+    act(() => { FakeAudio.last?.onended?.() })
+    expect(result.current[0].loadedAyat).toBeNull()
+
+    loaded.mockClear()
+    act(() => { result.current[1].playAyat(18, 3) })
+    await waitFor(() => expect(loaded).toHaveBeenCalledWith(18, 3))
+    expect(result.current[0].playing).toBe(true)
+  })
+})
+
+describe('useAudio combined ayat range (small play button)', () => {
+  it('plays every id of a multi_ayats row in sequence, then stops', async () => {
+    const { result } = setup()
+
+    // Row "3-5": the card passes the anchor id plus the rest of the range.
+    act(() => { result.current[1].playAyat(18, 3, [4, 5]) })
+    await waitFor(() => expect(loaded).toHaveBeenCalledWith(18, 3))
+    expect(result.current[0].playing).toBe(true)
+    expect(result.current[0].loadedAyat).toBe(3)
+
+    act(() => { FakeAudio.last?.onended?.() })
+    await waitFor(() => expect(loaded).toHaveBeenCalledWith(18, 4))
+    // Anchor stays put — the button must read as playing for the whole range,
+    // not flicker back to "play" between the range's own files.
+    expect(result.current[0].playing).toBe(true)
+    expect(result.current[0].loadedAyat).toBe(3)
+
+    act(() => { FakeAudio.last?.onended?.() })
+    await waitFor(() => expect(loaded).toHaveBeenCalledWith(18, 5))
+    expect(result.current[0].playing).toBe(true)
+
+    act(() => { FakeAudio.last?.onended?.() })
+    expect(result.current[0].playing).toBe(false)
+    expect(result.current[0].loadedAyat).toBeNull()
+  })
+
+  it('does not carry a leftover queue into the next single-ayat play', async () => {
+    const { result } = setup()
+
+    act(() => { result.current[1].playAyat(18, 3, [4, 5]) })
+    await waitFor(() => expect(FakeAudio.last?.play).toHaveBeenCalled())
+
+    // User taps a different, single ayat mid-range instead of letting it finish.
+    act(() => { result.current[1].playAyat(18, 9) })
+    await waitFor(() => expect(loaded).toHaveBeenCalledWith(18, 9))
+    act(() => { FakeAudio.last?.onended?.() })
+
+    expect(loaded).not.toHaveBeenCalledWith(18, 4)
+    expect(result.current[0].playing).toBe(false)
   })
 })
 
