@@ -1,4 +1,6 @@
 .page {
+  display: flex;
+  flex-direction: column;
   padding-top: 6px;
   padding-bottom: 24px;
   min-height: 100%;
