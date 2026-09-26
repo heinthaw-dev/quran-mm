@@ -4,6 +4,7 @@
 // time, to match the native progress + ETA semantics exactly.
 import { audioPath, audioUrl, AUDIO_FETCH_HEADERS } from './config.ts'
 import { AUDIO_CACHE_NAME } from './cacheNames.ts'
+import { firstAyatId } from './csv.ts'
 
 export interface DownloadProgress {
   surahIndex: number // 1-based index of the current surah within the batch
@@ -44,12 +45,11 @@ function computeEta(totalMissing: number, processedCount: number, startTime: num
   return null
 }
 
-// Ids run first..numberOfAyahs inclusive. Surah 1 alone starts at 0: its basmala
-// (Ayat_id 0 in 001.csv, 001000.mp3) is a page the reader plays but is not
-// counted in quran_surahs.csv, so surah 1 holds 7 files against a stated 6.
-// Audited across all 114 folders: every other surah is 1..numberOfAyahs exactly.
+// Ids run firstAyatId..numberOfAyahs inclusive, so surah 1 holds 7 files against
+// a stated 6. Audited across all 114 folders: every other surah is
+// 1..numberOfAyahs exactly.
 function ayatIds({ number, numberOfAyahs }: SurahDownloadJob): number[] {
-  const first = number === 1 ? 0 : 1
+  const first = firstAyatId(number)
   return Array.from({ length: numberOfAyahs + 1 - first }, (_, i) => first + i)
 }
 

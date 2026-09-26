@@ -99,3 +99,11 @@ export function parseAyatIds(multiStr: string): number[] {
 export function ayatIdsOf(row: AyatRow): number[] {
   return parseAyatIds(ayatLabel(row))
 }
+
+// The lowest Ayat_id a surah's CSV holds. Surah 1 alone starts at 0: its
+// basmala is a page of its own (001.csv row "0", audio 001000.mp3) and is not
+// counted in quran_surahs.csv's numberOfAyahs, so surah 1 runs 0..6 against a
+// stated 6. Every other surah runs 1..numberOfAyahs.
+export function firstAyatId(surahNumber: number): number {
+  return surahNumber === 1 ? 0 : 1
+}

@@ -1,5 +1,6 @@
 // Ports: showAyatKeypad (MainActivity.kt:1150)
 import { useEffect, useRef, useState } from 'react'
+import { firstAyatId } from '../../data/csv.ts'
 import styles from './JumpToAyatDialog.module.css'
 
 interface Props {
@@ -10,7 +11,11 @@ interface Props {
   onClose: () => void
 }
 
-export function JumpToAyatDialog({ totalAyats, surahName, onGo, onClose }: Props) {
+export function JumpToAyatDialog({ surahId, totalAyats, surahName, onGo, onClose }: Props) {
+  // Android hardcodes the lower bound to 1 (MainActivity.kt:1177), which leaves
+  // surah 1's basmala page (Ayat_id 0) unreachable from the keypad. Owner asked
+  // for 0 to be accepted there — a deliberate deviation.
+  const minAyat = firstAyatId(surahId)
   const ref = useRef<HTMLDialogElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const [value, setValue] = useState('')
@@ -46,7 +51,7 @@ export function JumpToAyatDialog({ totalAyats, surahName, onGo, onClose }: Props
 
   function handleGo() {
     const n = parseInt(value, 10)
-    if (!Number.isInteger(n) || n < 1 || n > totalAyats) {
+    if (!Number.isInteger(n) || n < minAyat || n > totalAyats) {
       setInvalid(true)
       inputRef.current?.focus()
       return
@@ -79,7 +84,7 @@ export function JumpToAyatDialog({ totalAyats, surahName, onGo, onClose }: Props
           className={`${styles.input} ${invalid ? styles.inputInvalid : ''}`}
           type="number"
           inputMode="numeric"
-          min={1}
+          min={minAyat}
           max={totalAyats}
           placeholder="Enter Ayat Number"
           value={value}

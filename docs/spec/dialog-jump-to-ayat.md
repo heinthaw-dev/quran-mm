@@ -16,7 +16,11 @@ Type an ayat number to jump directly within the current surah.
 - Actions: "Cancel" (text) and "Go" (filled primary pill).
 
 ## Behavior
-- Validates input is within `1..totalAyats`; out-of-range rejected.
+- Validates input is within `firstAyatId(surah)..totalAyats`; out-of-range rejected.
+  Android hardcodes the lower bound to 1 for every surah (MainActivity.kt:1177) and shows a
+  Toast "Out of Total Ayats" plus clears the field; the PWA shows a red outline instead.
+  KNOWN DEVIATION (owner-requested, 2026-09-27): surah 1 accepts 0, because its basmala is a
+  real page (001.csv Ayat_id 0) that Android's keypad cannot reach.
 - "Go" → `executeJump` to that ayat (pager page). "Cancel" dismisses.
 - Numeric keyboard. On phones the keyboard must not cover the dialog: the PWA tracks
   `window.visualViewport` and recentres the dialog in the space above the keypad
