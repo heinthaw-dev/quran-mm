@@ -9,6 +9,8 @@ interface UseAudioOptions {
   /** First ayat id of the surah — 0 for surah 1, whose ayat 0 is the Bismillah */
   firstAyat: number
   totalAyats: number
+  /** Surah name for the OS lock-screen media session */
+  surahTitle?: string
   onAutoTrack: (surah: number, ayat: number) => void
 }
 
@@ -17,10 +19,23 @@ interface UseAudioOptions {
 const BISMILLAH_SURAH = 1
 const BISMILLAH_AYAT = 0
 
+// Lock-screen / notification media session (no Android equivalent to port: the
+// native app gets this from MediaPlayer's own session).
+const SESSION_APP_NAME = 'Quran MM (KW)'
+const SESSION_ARTWORK = '/icons/icon-512.png'
+
 // Surah 1 already carries 001000.mp3 as its own ayat 0, and surah 9 has no
 // Bismillah at all (MainActivity.kt:828).
 function hasBismillah(surah: number): boolean {
   return surah !== 1 && surah !== 9
+}
+
+function trackKey(surah: number, ayat: number): string {
+  return `${surah}:${ayat}`
+}
+
+function hasMediaSession(): boolean {
+  return typeof navigator !== 'undefined' && 'mediaSession' in navigator
 }
 
 export interface AudioState {
@@ -47,6 +62,7 @@ export function useAudio({
   surahId,
   firstAyat,
   totalAyats,
+  surahTitle,
   onAutoTrack,
 }: UseAudioOptions): [AudioState, AudioActions] {
   const audioEl = useRef<HTMLAudioElement | null>(null)
@@ -64,6 +80,8 @@ export function useAudio({
   const activeSurahRef = useRef<number | null>(null)
   const activeAyatRef = useRef<number | null>(null)
   const autoTrackingRef = useRef(false)
+  const playingRef = useRef(false)
+  const firstAyatRef = useRef(firstAyat)
   const totalAyatsRef = useRef(totalAyats)
   const onAutoTrackRef = useRef(onAutoTrack)
   // The Bismillah head of the playlist is loaded; activeAyat already points at
@@ -77,10 +95,74 @@ export function useAudio({
   const objectUrlRef = useRef<string | null>(null)
   // Bumped per load so a stale fetch can't overwrite a newer one's src.
   const loadGenRef = useRef(0)
+  // Next track's blob URL, fetched while the current one plays. Without it the
+  // chain would await Cache Storage after 'ended', and that silent gap lets a
+  // backgrounded page (screen off) be frozen mid-await, stalling playback until
+  // the screen comes back on.
+  const prefetchRef = useRef<{ key: string; url: string } | null>(null)
+  const prefetchGenRef = useRef(0)
 
+  playingRef.current = playing
+  firstAyatRef.current = firstAyat
   totalAyatsRef.current = totalAyats
   onAutoTrackRef.current = onAutoTrack
   autoTrackingRef.current = autoTracking
+
+  const discardPrefetch = useCallback(() => {
+    prefetchGenRef.current++
+    const entry = prefetchRef.current
+    prefetchRef.current = null
+    if (entry) URL.revokeObjectURL(entry.url)
+  }, [])
+
+  const prefetch = useCallback(async (surah: number, ayat: number) => {
+    const key = trackKey(surah, ayat)
+    if (prefetchRef.current?.key === key) return
+    discardPrefetch()
+    const gen = prefetchGenRef.current
+    try {
+      const url = await getAudioObjectUrl(surah, ayat)
+      if (gen !== prefetchGenRef.current) {
+        URL.revokeObjectURL(url)
+        return
+      }
+      prefetchRef.current = { key, url }
+    } catch {
+      // Leave it unfetched; onended falls back to a live load.
+    }
+  }, [discardPrefetch])
+
+  // Warm the track that follows whatever is playing now.
+  const prefetchNext = useCallback(() => {
+    if (!surahModeRef.current) return
+    const surah = activeSurahRef.current
+    const current = activeAyatRef.current
+    if (surah === null || current === null) return
+    // While the Bismillah head plays, activeAyat already points at the ayat
+    // that follows it, so that ayat is the next track.
+    const next = bismillahRef.current ? current : current + 1
+    if (next > totalAyatsRef.current) return
+    void prefetch(surah, next)
+  }, [prefetch])
+
+  // Hand the element an already-fetched blob URL, with no await between the
+  // 'ended' event and play() — the whole swap runs in that one task.
+  const playPrefetched = useCallback((
+    el: HTMLAudioElement,
+    surah: number,
+    ayat: number,
+  ): boolean => {
+    const entry = prefetchRef.current
+    if (!entry || entry.key !== trackKey(surah, ayat)) return false
+    prefetchRef.current = null
+    // Any load still in flight is stale now.
+    loadGenRef.current++
+    if (objectUrlRef.current) URL.revokeObjectURL(objectUrlRef.current)
+    objectUrlRef.current = entry.url
+    el.src = entry.url
+    void Promise.resolve(el.play()).catch(() => { setPlaying(false) })
+    return true
+  }, [])
 
   // Fetch the ayat (cache first), swap the element's src to a blob URL, play.
   const loadAndPlay = useCallback(async (
@@ -102,10 +184,11 @@ export function useAudio({
       objectUrlRef.current = objectUrl
       el.src = objectUrl
       await el.play()
+      if (gen === loadGenRef.current) prefetchNext()
     } catch {
       if (gen === loadGenRef.current) setPlaying(false)
     }
-  }, [])
+  }, [prefetchNext])
 
   function getAudio() {
     if (!audioEl.current) {
@@ -115,7 +198,10 @@ export function useAudio({
           // Head done — fall through into the surah's own first ayat, already
           // held in activeAyatRef
           bismillahRef.current = false
-          void loadAndPlay(el, activeSurahRef.current!, activeAyatRef.current!)
+          const surah = activeSurahRef.current!
+          const ayat = activeAyatRef.current!
+          if (playPrefetched(el, surah, ayat)) prefetchNext()
+          else void loadAndPlay(el, surah, ayat)
           return
         }
         if (!surahModeRef.current) {
@@ -139,7 +225,8 @@ export function useAudio({
         if (autoTrackingRef.current) {
           onAutoTrackRef.current(s, nextAyat)
         }
-        void loadAndPlay(el, s, nextAyat)
+        if (playPrefetched(el, s, nextAyat)) prefetchNext()
+        else void loadAndPlay(el, s, nextAyat)
       }
       audioEl.current = el
     }
@@ -154,6 +241,7 @@ export function useAudio({
   ) => {
     const el = getAudio()
     el.pause()
+    discardPrefetch()
 
     activeSurahRef.current = surah
     activeAyatRef.current = ayat
@@ -167,7 +255,7 @@ export function useAudio({
     setPlaying(true)
 
     void loadAndPlay(el, surah, ayat, bismillah)
-  }, [loadAndPlay]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [loadAndPlay, discardPrefetch]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const playAyat = useCallback((surah: number, ayat: number) => {
     startPlayback(surah, ayat, false)
@@ -212,6 +300,19 @@ export function useAudio({
     startPlayback(surahId, firstAyat, true, hasBismillah(surahId))
   }, [playing, surahId, firstAyat, startPlayback])
 
+  // Lock-screen next/prev. The surah playlist is the only queue the app has,
+  // so outside surah mode there is nothing to skip to.
+  const skipTrack = useCallback((delta: number) => {
+    if (!surahModeRef.current) return
+    const surah = activeSurahRef.current
+    const current = activeAyatRef.current
+    if (surah === null || current === null) return
+    const target = current + delta
+    if (target < firstAyatRef.current || target > totalAyatsRef.current) return
+    startPlayback(surah, target, true)
+    if (autoTrackingRef.current) onAutoTrackRef.current(surah, target)
+  }, [startPlayback])
+
   const toggleAutoTracking = useCallback(() => {
     setAutoTracking((prev) => !prev)
   }, [])
@@ -227,6 +328,69 @@ export function useAudio({
     [playing, activeSurah, activeAyat],
   )
 
+  const togglePlayRef = useRef(togglePlay)
+  const skipTrackRef = useRef(skipTrack)
+  togglePlayRef.current = togglePlay
+  skipTrackRef.current = skipTrack
+
+  // A live media session is what tells the OS this page is a media app: it puts
+  // controls on the lock screen and keeps the page out of background freezing,
+  // the way the native app's own MediaPlayer session does.
+  useEffect(() => {
+    if (!hasMediaSession()) return
+    const ms = navigator.mediaSession
+    const set = (action: MediaSessionAction, handler: (() => void) | null) => {
+      try {
+        ms.setActionHandler(action, handler)
+      } catch {
+        // Browser doesn't know this action — skip it.
+      }
+    }
+    set('play', () => { if (!playingRef.current) togglePlayRef.current() })
+    set('pause', () => { if (playingRef.current) togglePlayRef.current() })
+    set('nexttrack', () => { skipTrackRef.current(1) })
+    set('previoustrack', () => { skipTrackRef.current(-1) })
+    return () => {
+      set('play', null)
+      set('pause', null)
+      set('nexttrack', null)
+      set('previoustrack', null)
+      ms.playbackState = 'none'
+      ms.metadata = null
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!hasMediaSession()) return
+    navigator.mediaSession.playbackState = playing ? 'playing' : 'paused'
+  }, [playing])
+
+  useEffect(() => {
+    if (!hasMediaSession() || typeof MediaMetadata === 'undefined') return
+    if (activeSurah === null || activeAyat === null) {
+      navigator.mediaSession.metadata = null
+      return
+    }
+    navigator.mediaSession.metadata = new MediaMetadata({
+      title: `${surahTitle ?? `Surah ${activeSurah}`} · ${activeAyat}`,
+      artist: SESSION_APP_NAME,
+      artwork: [{ src: SESSION_ARTWORK, sizes: '512x512', type: 'image/png' }],
+    })
+  }, [activeSurah, activeAyat, surahTitle])
+
+  // Backstop: a play() the browser refused while the page was hidden leaves the
+  // element paused though the app still thinks it is playing. Resume on return.
+  useEffect(() => {
+    const onVisible = () => {
+      if (document.visibilityState !== 'visible') return
+      const el = audioEl.current
+      if (!playing || !el || !el.src || !el.paused) return
+      void Promise.resolve(el.play()).catch(() => { setPlaying(false) })
+    }
+    document.addEventListener('visibilitychange', onVisible)
+    return () => { document.removeEventListener('visibilitychange', onVisible) }
+  }, [playing])
+
   // Snap to the playing ayat's page the moment tracking turns on, matching
   // Android's effect keyed on isAutoTracking (MainActivity.kt:388). Per-track
   // scroll during playback is handled inside the onended handler.
@@ -240,6 +404,7 @@ export function useAudio({
   useEffect(() => {
     if (activeSurahRef.current !== null && activeSurahRef.current !== surahId) {
       audioEl.current?.pause()
+      discardPrefetch()
       setPlaying(false)
       setActiveSurah(null)
       setActiveAyat(null)
@@ -250,12 +415,14 @@ export function useAudio({
       setLoadedAyat(null)
     }
     setAutoTracking(false)
-  }, [surahId])
+  }, [surahId, discardPrefetch])
 
   // Cleanup on unmount
   useEffect(() => () => {
     audioEl.current?.pause()
     if (objectUrlRef.current) URL.revokeObjectURL(objectUrlRef.current)
+    const pending = prefetchRef.current
+    if (pending) URL.revokeObjectURL(pending.url)
   }, [])
 
   const state: AudioState = { playing, activeSurah, activeAyat, isSurahMode, autoTracking, loadedAyat }

@@ -14,6 +14,7 @@ const loaded = vi.mocked(getAudioObjectUrl)
 class FakeAudio {
   static last: FakeAudio | null = null
   src = ''
+  paused = false
   onended: (() => void) | null = null
   play = vi.fn(async () => {})
   pause = vi.fn()
@@ -120,7 +121,8 @@ describe('useAudio surah playlist head', () => {
 
     act(() => { result.current[1].togglePlay() })
     await waitFor(() => expect(loaded).toHaveBeenCalledWith(1, 0))
-    expect(loaded).toHaveBeenCalledTimes(1)
+    // No separate prepend: ayat 0 is loaded once, as the surah's own first track
+    expect(loaded.mock.calls.filter(([s, a]) => s === 1 && a === 0)).toHaveLength(1)
 
     act(() => { FakeAudio.last?.onended?.() })
     await waitFor(() => expect(loaded).toHaveBeenCalledWith(1, 1))
@@ -130,23 +132,25 @@ describe('useAudio surah playlist head', () => {
     const { result } = renderFor(18, 1, 110)
 
     act(() => { result.current[1].togglePlay() })
-    await waitFor(() => expect(loaded).toHaveBeenCalledTimes(1))
+    await waitFor(() => expect(loaded).toHaveBeenCalledWith(...BISMILLAH))
     act(() => { FakeAudio.last?.onended?.() })
-    await waitFor(() => expect(loaded).toHaveBeenCalledTimes(2))
+    await waitFor(() => expect(loaded).toHaveBeenCalledWith(18, 2))
+    const fetches = loaded.mock.calls.length
 
     act(() => { result.current[1].togglePlay() })
     expect(result.current[0].playing).toBe(false)
     act(() => { result.current[1].togglePlay() })
 
     expect(result.current[0].playing).toBe(true)
-    expect(loaded).toHaveBeenCalledTimes(2)
+    // Resume plays the loaded element again; it re-fetches nothing
+    expect(loaded.mock.calls).toHaveLength(fetches)
   })
 
   it('rebuilds from the Bismillah after the surah changes', async () => {
     const { result, rerender } = renderFor(18, 1, 110)
 
     act(() => { result.current[1].togglePlay() })
-    await waitFor(() => expect(loaded).toHaveBeenCalledTimes(1))
+    await waitFor(() => expect(loaded).toHaveBeenCalledWith(...BISMILLAH))
 
     rerender({ surahId: 2, firstAyat: 1 })
     loaded.mockClear()
@@ -183,6 +187,160 @@ describe('useAudio surah playlist head', () => {
     act(() => { result.current[1].playSurahFrom(18, 1) })
 
     await waitFor(() => expect(loaded).toHaveBeenCalledWith(...BISMILLAH))
+    expect(result.current[0].activeAyat).toBe(1)
+  })
+})
+
+describe('useAudio gapless chain', () => {
+  it('prefetches the next ayat while the current one plays', async () => {
+    const { result } = setup()
+
+    act(() => { result.current[1].playSurahFrom(18, 3) })
+
+    await waitFor(() => expect(loaded).toHaveBeenCalledWith(18, 4))
+  })
+
+  it('prefetches the surah\'s first ayat while the Bismillah head plays', async () => {
+    const { result } = setup()
+
+    act(() => { result.current[1].togglePlay() })
+
+    await waitFor(() => expect(loaded).toHaveBeenCalledWith(...BISMILLAH))
+    await waitFor(() => expect(loaded).toHaveBeenCalledWith(18, 1))
+  })
+
+  // The point of the prefetch: no await sits between 'ended' and play(), so a
+  // backgrounded page cannot be frozen in a silent gap between two ayats.
+  it('starts the next ayat in the same task as the ended event', async () => {
+    const { result } = setup()
+
+    act(() => { result.current[1].playSurahFrom(18, 3) })
+    await waitFor(() => expect(loaded).toHaveBeenCalledWith(18, 4))
+
+    const el = FakeAudio.last!
+    const playsBefore = el.play.mock.calls.length
+    loaded.mockClear()
+    act(() => { el.onended?.() })
+
+    expect(el.play.mock.calls.length).toBe(playsBefore + 1)
+    expect(loaded).not.toHaveBeenCalledWith(18, 4)
+    expect(result.current[0].activeAyat).toBe(4)
+  })
+
+  it('falls back to a live load when the next ayat was not prefetched', async () => {
+    const { result } = setup()
+
+    act(() => { result.current[1].playAyat(18, 3) })
+    await waitFor(() => expect(FakeAudio.last?.play).toHaveBeenCalled())
+    // Single-ayat playback prefetches nothing
+    expect(loaded).not.toHaveBeenCalledWith(18, 4)
+
+    act(() => { result.current[1].playSurahFrom(18, 3) })
+    loaded.mockClear()
+    act(() => { FakeAudio.last?.onended?.() })
+
+    await waitFor(() => expect(loaded).toHaveBeenCalledWith(18, 4))
+  })
+
+  it('resumes on return to the foreground after a refused hidden play', async () => {
+    const { result } = setup()
+
+    act(() => { result.current[1].playAyat(18, 3) })
+    await waitFor(() => expect(FakeAudio.last?.play).toHaveBeenCalled())
+
+    const el = FakeAudio.last!
+    el.paused = true
+    const playsBefore = el.play.mock.calls.length
+    act(() => { document.dispatchEvent(new Event('visibilitychange')) })
+
+    expect(el.play.mock.calls.length).toBe(playsBefore + 1)
+  })
+})
+
+interface FakeSession {
+  metadata: { title?: string; artist?: string } | null
+  playbackState: string
+  handlers: Map<string, (() => void) | null>
+  setActionHandler: (action: string, handler: (() => void) | null) => void
+}
+
+describe('useAudio media session', () => {
+  let session: FakeSession
+
+  const withTitle = () =>
+    renderHook(() =>
+      useAudio({
+        surahId: 18,
+        firstAyat: 1,
+        totalAyats: 110,
+        surahTitle: 'Al-Kahf',
+        onAutoTrack: () => {},
+      }),
+    )
+
+  beforeEach(() => {
+    session = {
+      metadata: null,
+      playbackState: 'none',
+      handlers: new Map(),
+      setActionHandler(action, handler) {
+        this.handlers.set(action, handler)
+      },
+    }
+    Object.defineProperty(navigator, 'mediaSession', { value: session, configurable: true })
+    vi.stubGlobal('MediaMetadata', class {
+      constructor(init: Record<string, unknown>) {
+        Object.assign(this, init)
+      }
+    })
+  })
+
+  afterEach(() => {
+    Reflect.deleteProperty(navigator, 'mediaSession')
+  })
+
+  it('publishes the playing ayat and state to the OS', async () => {
+    const { result } = withTitle()
+
+    act(() => { result.current[1].playSurahFrom(18, 3) })
+    await waitFor(() => expect(FakeAudio.last?.play).toHaveBeenCalled())
+
+    expect(session.playbackState).toBe('playing')
+    expect(session.metadata?.title).toBe('Al-Kahf · 3')
+  })
+
+  it('pauses from the lock-screen control', async () => {
+    const { result } = withTitle()
+
+    act(() => { result.current[1].playSurahFrom(18, 3) })
+    await waitFor(() => expect(FakeAudio.last?.play).toHaveBeenCalled())
+    act(() => { session.handlers.get('pause')?.() })
+
+    expect(result.current[0].playing).toBe(false)
+    expect(session.playbackState).toBe('paused')
+    expect(FakeAudio.last?.pause).toHaveBeenCalled()
+  })
+
+  it('steps the playlist from the lock-screen next/prev controls', async () => {
+    const { result } = withTitle()
+
+    act(() => { result.current[1].playSurahFrom(18, 3) })
+    await waitFor(() => expect(FakeAudio.last?.play).toHaveBeenCalled())
+
+    act(() => { session.handlers.get('nexttrack')?.() })
+    expect(result.current[0].activeAyat).toBe(4)
+
+    act(() => { session.handlers.get('previoustrack')?.() })
+    expect(result.current[0].activeAyat).toBe(3)
+  })
+
+  it('ignores prev at the first ayat of the surah', async () => {
+    const { result } = withTitle()
+
+    act(() => { result.current[1].playSurahFrom(18, 1) })
+    await waitFor(() => expect(loaded).toHaveBeenCalledWith(...BISMILLAH))
+
+    act(() => { session.handlers.get('previoustrack')?.() })
     expect(result.current[0].activeAyat).toBe(1)
   })
 })

@@ -80,6 +80,19 @@ export function ReaderScreen({ prefs, onPrefsUpdate }: Props) {
   const [dragOffset, setDragOffset] = useState(0)
   const [phase, setPhase] = useState<SwipePhase>('idle')
 
+  // Current slide's scroll offset, remembered per page so a jump-history
+  // return can land back where the [number] link was tapped, not the top.
+  const currentSlideRef = useRef<HTMLDivElement>(null)
+  const scrollPositions = useRef<Map<string, number>>(new Map())
+  // Only a jump-history return restores scroll; every other nav (swipe,
+  // Surah/Ayat arrows, keypad Go, auto-track) lands at the top.
+  const restoreScrollRef = useRef(false)
+  const handleSlideScroll = useCallback(() => {
+    const slide = currentSlideRef.current
+    if (!slide) return
+    scrollPositions.current.set(`${surahId}:${pageIndex}`, slide.scrollTop)
+  }, [surahId, pageIndex])
+
   // Non-passive native listener so preventDefault() works on iOS Safari.
   // Only blocks default scroll once we've confirmed horizontal intent.
   useEffect(() => {
@@ -210,10 +223,26 @@ export function ReaderScreen({ prefs, onPrefsUpdate }: Props) {
     return () => clearTimeout(timer)
   }, [phase])
 
+  // Runs after the current slide's content has settled on the new page.
+  // A jump-history return restores the spot it left off; anything else
+  // (swipe, arrows, keypad, auto-track) lands at the top.
+  useEffect(() => {
+    if (loading) return
+    const slide = currentSlideRef.current
+    if (!slide) return
+    if (restoreScrollRef.current) {
+      restoreScrollRef.current = false
+      slide.scrollTop = scrollPositions.current.get(`${surahId}:${pageIndex}`) ?? 0
+    } else {
+      slide.scrollTop = 0
+    }
+  }, [surahId, pageIndex, loading])
+
   const [audioState, audioActions] = useAudio({
     surahId,
     firstAyat: state.ayats[0]?.ayatId ?? 1,
     totalAyats,
+    surahTitle: surah?.myanmarName || surah?.englishName,
     onAutoTrack: handleAutoTrack,
   })
 
@@ -242,6 +271,7 @@ export function ReaderScreen({ prefs, onPrefsUpdate }: Props) {
       setHistoryDialogOpen(true)
       return
     }
+    restoreScrollRef.current = true
     actions.goToHistoryStep(0)
   }, [jumpHistory.length, audioActions, actions])
 
@@ -249,6 +279,7 @@ export function ReaderScreen({ prefs, onPrefsUpdate }: Props) {
     (index: number) => {
       audioActions.disableAutoTracking()
       setHistoryDialogOpen(false)
+      restoreScrollRef.current = true
       actions.goToHistoryStep(index)
     },
     [audioActions, actions],
@@ -500,7 +531,7 @@ export function ReaderScreen({ prefs, onPrefsUpdate }: Props) {
             )}
           </div>
           {/* Current slide */}
-          <div className={styles.slide}>
+          <div className={styles.slide} ref={currentSlideRef} onScroll={handleSlideScroll}>
             {loading ? (
               <div className={styles.loading} />
             ) : (
