@@ -23,15 +23,11 @@ export function SelectAudioToDeleteDialog({ onClose }: Props) {
     getCachedSurahs().then(setCached)
   }, [])
 
-  const deletable = cached.filter((c) => c.number !== 1)
-  const allSelected = deletable.length > 0 && deletable.every((c) => selected.has(c.number))
+  // Surah 1 can't be checked row-by-row, but "Check All" sweeps it in too (bulk clear allows it).
+  const allSelected = cached.length > 0 && cached.every((c) => selected.has(c.number))
 
   function toggleAll() {
-    if (allSelected) {
-      setSelected(new Set())
-    } else {
-      setSelected(new Set(deletable.map((c) => c.number)))
-    }
+    setSelected(allSelected ? new Set() : new Set(cached.map((c) => c.number)))
   }
 
   function toggleOne(num: number) {

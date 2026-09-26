@@ -81,6 +81,10 @@
   line-height: 1.4;
 }
 
+.checkbox:disabled + .rowLabel {
+  color: #9E9E9E;
+}
+
 .footer {
   flex-shrink: 0;
   padding: 12px 24px 8px;

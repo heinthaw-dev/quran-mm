@@ -18,6 +18,7 @@ Free space by deleting downloaded surah audio.
 - Title "Select Audio to Delete" in accent pink `#D81B60`.
 - "Check All" link (blue).
 - Checkbox rows = downloaded surahs only, e.g. `Surah 1: '…' ကဏ္ဏ (၁)`, `Surah 18: '…' ကဏ္ဏ (၁၈)` (unchecked by default).
+- Surah 1 row: checkbox always `disabled` (Color.Gray), can't be tapped individually. "Check All" still sweeps it into the selection (checked, gray, counted toward size, deletable); "Uncheck All" clears it back out along with the rest (user-verified 2026-09-26).
 - Footer: "N Surah selected." + "Freed up size: X MB" in pink (e.g. "0 Surah selected. / Freed up size: 0.0 MB").
 - Actions: "Close" (primary text) + "Delete Selected" (pink pill, disabled when 0 selected).
 
