@@ -21,6 +21,29 @@ export function JumpToAyatDialog({ totalAyats, surahName, onGo, onClose }: Props
     inputRef.current?.focus()
   }, [])
 
+  // The on-screen keyboard shrinks the visual viewport but not the layout
+  // viewport, so a fixed, centred dialog ends up behind the keypad. Mirror the
+  // visual viewport into CSS vars and the dialog recentres above it.
+  useEffect(() => {
+    const vv = window.visualViewport
+    const el = ref.current
+    if (!vv || !el) return
+
+    function apply() {
+      if (!vv || !el) return
+      el.style.setProperty('--vv-top', `${vv.offsetTop}px`)
+      el.style.setProperty('--vv-height', `${vv.height}px`)
+    }
+
+    apply()
+    vv.addEventListener('resize', apply)
+    vv.addEventListener('scroll', apply)
+    return () => {
+      vv.removeEventListener('resize', apply)
+      vv.removeEventListener('scroll', apply)
+    }
+  }, [])
+
   function handleGo() {
     const n = parseInt(value, 10)
     if (!Number.isInteger(n) || n < 1 || n > totalAyats) {

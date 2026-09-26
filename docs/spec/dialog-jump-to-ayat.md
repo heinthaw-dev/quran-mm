@@ -18,7 +18,9 @@ Type an ayat number to jump directly within the current surah.
 ## Behavior
 - Validates input is within `1..totalAyats`; out-of-range rejected.
 - "Go" → `executeJump` to that ayat (pager page). "Cancel" dismisses.
-- Numeric keyboard.
+- Numeric keyboard. On phones the keyboard must not cover the dialog: the PWA tracks
+  `window.visualViewport` and recentres the dialog in the space above the keypad
+  (Android dialogs are resized by the window manager for free).
 
 ## Open questions
 - Invalid-input feedback (Toast? disabled Go?) — confirm in port phase.
