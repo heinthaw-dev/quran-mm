@@ -2,7 +2,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 
 // Synchronous ref update pattern — avoids stale closure in onended handler
-import { getAudioObjectUrl } from '../data/audioCache.ts'
+import { AudioNotDownloadedError, getAudioObjectUrl } from '../data/audioCache.ts'
 import { audioLog, isAudioDebug } from '../data/audioLog.ts'
 import { canStreamAudio, openAudioStream } from '../data/audioStream.ts'
 import type { AudioStream, StreamTrack } from '../data/audioStream.ts'
@@ -326,6 +326,12 @@ export function useAudio({
       } catch (err) {
         if (gen !== loadGenRef.current) return
         audioLog('load fail', `${key} try ${attempt} ${errorText(err)}`)
+        // Never downloaded: trying again cannot put it on the device, and
+        // Android simply plays nothing here (MainActivity.kt:798).
+        if (err instanceof AudioNotDownloadedError) {
+          setPlaying(false)
+          return
+        }
         if (attempt === LOAD_ATTEMPTS) break
         await delay(RETRY_DELAY_MS)
         if (gen !== loadGenRef.current) return

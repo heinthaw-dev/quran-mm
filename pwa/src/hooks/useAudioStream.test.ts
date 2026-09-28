@@ -6,6 +6,7 @@ import { getAudioBlob } from '../data/audioCache.ts'
 import { useAudio } from './useAudio.ts'
 
 vi.mock('../data/audioCache.ts', () => ({
+  AudioNotDownloadedError: class extends Error {},
   getAudioObjectUrl: vi.fn(async (surah: number, ayat: number) => `blob:${surah}:${ayat}`),
   getAudioBlob: vi.fn(async () => ({
     arrayBuffer: async () => new Uint8Array([0xff, 0xfb, 0x90, 0x00]).buffer,

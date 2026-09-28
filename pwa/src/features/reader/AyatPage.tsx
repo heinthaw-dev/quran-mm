@@ -24,6 +24,10 @@ interface Props {
   /** This card's ayat is the one whose single-ayat audio is loaded, i.e.
    *  Android's `loadedAyatIndex == page` (MainActivity.kt:1675) */
   audioLoaded: boolean
+  /** Every file this row would play is on the device. Android dims the button
+   *  to 30% when it is not and lets the tap do nothing (BlueprintCard.kt:47,
+   *  MainActivity.kt:798). */
+  audioAvailable: boolean
   onPlayAyat: () => void
   onPlaySurahFromHere: () => void
   onScaleArabic: (delta: -1 | 1) => void
@@ -95,6 +99,7 @@ export function AyatPage({
   noteFontScale,
   audioPlaying,
   audioLoaded,
+  audioAvailable,
   onPlayAyat,
   onPlaySurahFromHere,
   onScaleArabic,
@@ -122,7 +127,12 @@ export function AyatPage({
         titleSize={13}
         actions={
           <>
-            <IconBtn size={26} onClick={onPlayAyat} label="Play ayat" opacity={1}>
+            <IconBtn
+              size={26}
+              onClick={audioAvailable ? onPlayAyat : () => {}}
+              label="Play ayat"
+              opacity={audioAvailable ? 1 : 0.3}
+            >
               {audioPlaying ? (
                 <PauseIcon size={26} color="var(--color-primary)" />
               ) : (

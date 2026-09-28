@@ -5,6 +5,7 @@ import type { AppPrefs, AppTheme } from '../../data/types.ts'
 import { useSurah, ayatLabel, ayatIdsOf } from '../../hooks/useSurah.ts'
 import { useAudio } from '../../hooks/useAudio.ts'
 import { useAudioDownload } from '../../hooks/useAudioDownload.ts'
+import { useAudioAvailability } from '../../hooks/useAudioAvailability.ts'
 import type { SurahDownloadJob } from '../../data/audioDownload.ts'
 import { NavDrawer } from '../nav-drawer/NavDrawer.tsx'
 import { SelectThemeDialog } from '../dialog-select-theme/SelectThemeDialog.tsx'
@@ -246,11 +247,22 @@ export function ReaderScreen({ prefs, onPrefsUpdate }: Props) {
     onAutoTrack: handleAutoTrack,
   })
 
+  // Android plays local files only, so both play buttons are dead until the
+  // audio is on the device (MainActivity.kt:708-738).
+  const { surahAvailable, isRowAvailable } = useAudioAvailability(
+    surahId,
+    state.ayats[0]?.ayatId ?? 1,
+    totalAyats,
+  )
+
   // handleTouchEnd is defined above audioActions; reach it through a ref.
   const audioActionsRef = useRef(audioActions)
   audioActionsRef.current = audioActions
 
-  const handleToggleAudio = useCallback(() => { audioActions.togglePlay() }, [audioActions])
+  const handleToggleAudio = useCallback(() => {
+    if (!surahAvailable) return
+    audioActions.togglePlay()
+  }, [audioActions, surahAvailable])
   const handleToggleAutoTracking = useCallback(() => { audioActions.toggleAutoTracking() }, [audioActions])
   const handlePlayAyat = useCallback(
     // Ids after the row's own, for the small play button to queue in sequence
@@ -484,7 +496,7 @@ export function ReaderScreen({ prefs, onPrefsUpdate }: Props) {
         jumpHistory={jumpHistory}
         audioPlaying={audioState.playing}
         autoTracking={audioState.autoTracking}
-        audioAvailable={true}
+        audioAvailable={surahAvailable}
         onMenuClick={handleMenuClick}
         onPrevSurah={actions.prevSurah}
         onNextSurah={actions.nextSurah}
@@ -523,6 +535,7 @@ export function ReaderScreen({ prefs, onPrefsUpdate }: Props) {
                 noteFontScale={noteFontScale}
                 audioPlaying={audioActions.isPlayingAyat(surahId, prevRow.ayatId)}
                 audioLoaded={audioState.loadedAyat === prevRow.ayatId}
+                audioAvailable={isRowAvailable(prevRow)}
                 onPlayAyat={() => audioActions.playAyat(surahId, prevRow.ayatId, ayatIdsOf(prevRow).slice(1))}
                 onPlaySurahFromHere={() => audioActions.playSurahFrom(surahId, prevRow.ayatId)}
                 onScaleArabic={actions.scaleArabic}
@@ -548,6 +561,7 @@ export function ReaderScreen({ prefs, onPrefsUpdate }: Props) {
                 noteFontScale={noteFontScale}
                 audioPlaying={audioActions.isPlayingAyat(surahId, currentAyatId)}
                 audioLoaded={audioState.loadedAyat === currentAyatId}
+                audioAvailable={currentRow ? isRowAvailable(currentRow) : false}
                 onPlayAyat={handlePlayAyat}
                 onPlaySurahFromHere={handlePlaySurahFromHere}
                 onScaleArabic={actions.scaleArabic}
@@ -571,6 +585,7 @@ export function ReaderScreen({ prefs, onPrefsUpdate }: Props) {
                 noteFontScale={noteFontScale}
                 audioPlaying={audioActions.isPlayingAyat(surahId, nextRow.ayatId)}
                 audioLoaded={audioState.loadedAyat === nextRow.ayatId}
+                audioAvailable={isRowAvailable(nextRow)}
                 onPlayAyat={() => audioActions.playAyat(surahId, nextRow.ayatId, ayatIdsOf(nextRow).slice(1))}
                 onPlaySurahFromHere={() => audioActions.playSurahFrom(surahId, nextRow.ayatId)}
                 onScaleArabic={actions.scaleArabic}

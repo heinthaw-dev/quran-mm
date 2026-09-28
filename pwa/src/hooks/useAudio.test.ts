@@ -4,6 +4,7 @@ import { getAudioObjectUrl } from '../data/audioCache.ts'
 import { useAudio } from './useAudio.ts'
 
 vi.mock('../data/audioCache.ts', () => ({
+  AudioNotDownloadedError: class extends Error {},
   getAudioObjectUrl: vi.fn(async (surah: number, ayat: number) => `blob:${surah}:${ayat}`),
 }))
 

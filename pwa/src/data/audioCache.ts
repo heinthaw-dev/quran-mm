@@ -1,8 +1,9 @@
-import { audioPath, audioUrl, AUDIO_FETCH_HEADERS } from './config.ts'
+import { audioPath } from './config.ts'
 import { AUDIO_CACHE_NAME } from './cacheNames.ts'
 
 // URL pattern: /audio/001/001001.mp3
 const AUDIO_URL_RE = /\/audio\/(\d{3})\//
+const AUDIO_FILE_RE = /\/audio\/(\d{3})\/\d{3}(\d{3})\.mp3$/
 
 export interface CachedSurah {
   number: number
@@ -72,6 +73,7 @@ export async function deleteAudioCache(surahNumbers: number[]): Promise<void> {
         if (targets.has(surahNum)) await cache.delete(req)
       }),
     )
+    invalidateDownloadedAyats()
   } catch {
     // Cache unavailable — nothing to delete
   }
@@ -104,20 +106,69 @@ async function matchCachedAudio(cache: Cache, path: string): Promise<Response | 
   return legacy ? cache.match(legacy, { ignoreVary: true }) : undefined
 }
 
-// Playback goes through fetch(), never `el.src = <remote url>`: a media element
-// cannot carry AUDIO_FETCH_HEADERS, so a host that screens browser requests
-// answers it with HTML the element cannot decode. Downloaded ayats come from
-// Cache Storage (offline); anything else streams from the host and is NOT
-// cached, so the Delete Audio list keeps meaning "downloaded", like native.
-export async function getAudioBlob(surah: number, ayat: number): Promise<Blob> {
-  let res: Response | undefined
-  if ('caches' in window) {
-    const cache = await caches.open(AUDIO_CACHE_NAME)
-    res = await matchCachedAudio(cache, audioPath(surah, ayat))
+/** A play of an ayat that was never downloaded. Not worth retrying: no amount
+ *  of trying again puts the file in the cache. */
+export class AudioNotDownloadedError extends Error {
+  constructor(surah: number, ayat: number) {
+    super(`Audio not downloaded (${surah}:${ayat})`)
+    this.name = 'AudioNotDownloadedError'
   }
-  if (!res) res = await fetch(audioUrl(surah, ayat), { headers: AUDIO_FETCH_HEADERS })
-  if (!res.ok) throw new Error(`Audio unavailable (${res.status})`)
+}
+
+// Playback reads downloaded files only, like Android, whose players are only
+// ever handed `Uri.fromFile(...)` and whose network code belongs to the
+// downloader alone (MainActivity.kt:792, :833, :1656-1660). Streaming a missing
+// ayat would spend the user's mobile data on every play — 39 MB for Al-Baqara,
+// each time — so a missing file stops playback instead.
+export async function getAudioBlob(surah: number, ayat: number): Promise<Blob> {
+  if (!('caches' in window)) throw new AudioNotDownloadedError(surah, ayat)
+  const cache = await caches.open(AUDIO_CACHE_NAME)
+  const res = await matchCachedAudio(cache, audioPath(surah, ayat))
+  if (!res?.ok) throw new AudioNotDownloadedError(surah, ayat)
   return res.blob()
+}
+
+// Which ayats are on the device, as `surah:ayat` keys. Android recomputes the
+// same answer from the filesystem whenever a surah loads or a download or
+// delete finishes (MainActivity.kt:705-738, :552, :582); here one pass over the
+// cache keys serves every card on the screen, and download/delete invalidate it.
+let downloadedAyats: Promise<Set<string>> | null = null
+
+export function ayatKey(surah: number, ayat: number): string {
+  return `${surah}:${ayat}`
+}
+
+export function listDownloadedAyats(): Promise<Set<string>> {
+  downloadedAyats ??= (async () => {
+    const keys = new Set<string>()
+    if (!('caches' in window)) return keys
+    try {
+      const cache = await caches.open(AUDIO_CACHE_NAME)
+      for (const req of await cache.keys()) {
+        const match = new URL(req.url).pathname.match(AUDIO_FILE_RE)
+        if (!match?.[1] || !match[2]) continue
+        keys.add(ayatKey(parseInt(match[1], 10), parseInt(match[2], 10)))
+      }
+    } catch {
+      // Cache unavailable — nothing is downloaded as far as the UI knows.
+    }
+    return keys
+  })()
+  return downloadedAyats
+}
+
+const availabilityListeners = new Set<() => void>()
+
+export function subscribeDownloadedAyats(fn: () => void): () => void {
+  availabilityListeners.add(fn)
+  return () => { availabilityListeners.delete(fn) }
+}
+
+/** Called by the downloader and the delete flow, so the play buttons follow the
+ *  device without the screens having to remember to ask. */
+export function invalidateDownloadedAyats(): void {
+  downloadedAyats = null
+  availabilityListeners.forEach((fn) => { fn() })
 }
 
 export async function getAudioObjectUrl(surah: number, ayat: number): Promise<string> {

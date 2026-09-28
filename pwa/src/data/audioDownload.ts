@@ -4,6 +4,7 @@
 // time, to match the native progress + ETA semantics exactly.
 import { audioPath, audioUrl, AUDIO_FETCH_HEADERS } from './config.ts'
 import { AUDIO_CACHE_NAME } from './cacheNames.ts'
+import { invalidateDownloadedAyats } from './audioCache.ts'
 import { firstAyatId } from './csv.ts'
 
 export interface DownloadProgress {
@@ -110,6 +111,7 @@ export async function downloadSurahsAudio(
         const isHtml = res.headers.get('content-type')?.includes('text/html')
         if (res.ok && !isHtml) {
           await cache.put(audioPath(s.number, ayat), res)
+          invalidateDownloadedAyats()
         }
       } catch (e) {
         // Abort (Stop) propagates; a single failed ayat is skipped, like native.

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { audioPath, audioUrl } from './config.ts'
+import { audioPath } from './config.ts'
 
 // Fresh module per test: audioCache indexes legacy cache keys once per session.
 const loadGetAudioObjectUrl = async () =>
@@ -51,15 +51,41 @@ describe('getAudioObjectUrl', () => {
     expect(fetchMock).not.toHaveBeenCalled()
   })
 
-  it('streams from the host when the ayat was never downloaded', async () => {
+  // Android's players only ever open local files, so an ayat the user has not
+  // downloaded is not played at all — and never quietly fetched over mobile
+  // data (MainActivity.kt:792, :1656-1660).
+  it('refuses an ayat that was never downloaded instead of streaming it', async () => {
     installFakeCaches()
-    await expect((await loadGetAudioObjectUrl())(1, 1)).resolves.toBe('blob:fake')
-    expect(fetchMock).toHaveBeenCalledWith(audioUrl(1, 1), expect.anything())
+    await expect((await loadGetAudioObjectUrl())(1, 1)).rejects.toThrow('Audio not downloaded (1:1)')
+    expect(fetchMock).not.toHaveBeenCalled()
+  })
+})
+
+describe('listDownloadedAyats', () => {
+  beforeEach(() => { vi.resetModules() })
+  afterEach(() => { delete (globalThis as unknown as { caches?: unknown }).caches })
+
+  it('indexes the cache by surah and ayat', async () => {
+    installFakeCaches({ [audioPath(1, 0)]: 'mp3', [audioPath(18, 110)]: 'mp3' })
+    const { listDownloadedAyats } = await import('./audioCache.ts')
+
+    const keys = await listDownloadedAyats()
+
+    expect(keys.has('1:0')).toBe(true)
+    expect(keys.has('18:110')).toBe(true)
+    expect(keys.has('18:1')).toBe(false)
   })
 
-  it('throws when the host refuses the file', async () => {
+  it('re-reads the cache after a download or a delete', async () => {
     installFakeCaches()
-    fetchMock.mockResolvedValue(new Response('', { status: 404 }))
-    await expect((await loadGetAudioObjectUrl())(1, 1)).rejects.toThrow('Audio unavailable (404)')
+    const { listDownloadedAyats, invalidateDownloadedAyats } = await import('./audioCache.ts')
+    expect((await listDownloadedAyats()).size).toBe(0)
+
+    installFakeCaches({ [audioPath(2, 5)]: 'mp3' })
+    expect((await listDownloadedAyats()).size).toBe(0)
+
+    invalidateDownloadedAyats()
+
+    expect((await listDownloadedAyats()).has('2:5')).toBe(true)
   })
 })
