@@ -446,6 +446,25 @@ describe('useAudio unsolicited pause', () => {
     expect(result.current[0].playing).toBe(false)
   })
 
+  it('picks the ayat up when the screen comes back on after giving up', async () => {
+    const { result } = setup()
+
+    act(() => { result.current[1].playSurahFrom(18, 3) })
+    await waitFor(() => expect(FakeAudio.last?.play).toHaveBeenCalled())
+
+    // A screen that is off pauses every attempt, until the budget runs out.
+    const el = FakeAudio.last!
+    await act(async () => {
+      for (let i = 0; i < 13; i++) el.emit('pause')
+    })
+    expect(result.current[0].playing).toBe(false)
+
+    await act(async () => { document.dispatchEvent(new Event('visibilitychange')) })
+
+    expect(result.current[0].playing).toBe(true)
+    expect(result.current[0].activeAyat).toBe(3)
+  })
+
   it('leaves the natural pause at the end of a track alone', async () => {
     const { result } = setup()
 

@@ -201,6 +201,13 @@ export function useAudio({
   const recoverFromPause = useCallback(async (el: HTMLAudioElement) => {
     recoveriesRef.current++
     if (recoveriesRef.current > MAX_RECOVERIES_PER_TRACK) {
+      // A screen that is off refuses every attempt (device log: twelve pauses
+      // inside 1.3 s), so hold the spot for the screen coming back on.
+      const surah = activeSurahRef.current
+      const ayat = activeAyatRef.current
+      if (surah !== null && ayat !== null) {
+        resumeRef.current = { surah, ayat, surahMode: surahModeRef.current }
+      }
       audioLog('resume gave up', 'too many pauses on one track')
       setPlaying(false)
       return
@@ -576,6 +583,15 @@ export function useAudio({
     const onVisible = () => {
       audioLog('visibility', document.visibilityState)
       if (document.visibilityState !== 'visible') return
+      // The ayat the screen-off refused to start: pick it up now that the screen
+      // is back, rather than making the user find their place again.
+      const spot = resumeRef.current
+      if (spot && !playing) {
+        resumeRef.current = null
+        audioLog('screen-on resume', `${spot.surah}:${spot.ayat}`)
+        startPlaybackRef.current(spot.surah, spot.ayat, spot.surahMode)
+        return
+      }
       const el = audioEl.current
       if (!playing || !el || !el.src || !el.paused) return
       void Promise.resolve(el.play()).catch(() => { setPlaying(false) })
