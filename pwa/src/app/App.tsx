@@ -5,6 +5,7 @@ import { usePrefs } from '../hooks/usePrefs.ts'
 import { SplashScreen } from '../features/splash/SplashScreen.tsx'
 import { ReaderScreen } from '../features/reader/ReaderScreen.tsx'
 import { InfoViewerScreen } from '../features/info-viewer/InfoViewerScreen.tsx'
+import { AudioDebugOverlay } from '../ui/index.ts'
 
 function readUrlParams(): { nosplash: boolean; theme: string | null } {
   const p = new URLSearchParams(window.location.search)
@@ -28,6 +29,7 @@ export default function App() {
           <Route path="/info/:page" element={<InfoViewerScreen />} />
         </Routes>
       </BrowserRouter>
+      <AudioDebugOverlay />
     </div>
   )
 }

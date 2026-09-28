@@ -1,0 +1,63 @@
+/* Diagnostic surface, not part of the ported UI — it deliberately uses its own
+   flat colours so it can never be mistaken for a screen under parity review. */
+.pill,
+.panel {
+  position: fixed;
+  z-index: 9999;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11px;
+  color: #fff;
+  background: rgba(20, 20, 28, 0.92);
+}
+
+.pill {
+  right: 8px;
+  bottom: 8px;
+  padding: 6px 10px;
+  border: 0;
+  border-radius: 999px;
+}
+
+.panel {
+  inset: auto 8px 8px 8px;
+  max-height: 55vh;
+  display: flex;
+  flex-direction: column;
+  border-radius: 8px;
+  padding: 8px;
+  gap: 6px;
+}
+
+.bar {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.bar button {
+  font: inherit;
+  color: inherit;
+  background: rgba(255, 255, 255, 0.16);
+  border: 0;
+  border-radius: 4px;
+  padding: 4px 8px;
+}
+
+.count {
+  margin-inline-end: auto;
+  opacity: 0.7;
+}
+
+.list {
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  list-style: none;
+  white-space: pre-wrap;
+  word-break: break-word;
+  line-height: 1.5;
+}
+
+.hidden {
+  color: #ffd27d;
+}
