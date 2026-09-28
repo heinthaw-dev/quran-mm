@@ -3,6 +3,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 
 // Synchronous ref update pattern — avoids stale closure in onended handler
 import { getAudioObjectUrl } from '../data/audioCache.ts'
+import { audioLog, isAudioDebug } from '../data/audioLog.ts'
 
 interface UseAudioOptions {
   surahId: number
@@ -24,6 +25,13 @@ const BISMILLAH_AYAT = 0
 const SESSION_APP_NAME = 'Quran MM (KW)'
 const SESSION_ARTWORK = '/icons/icon-512.png'
 
+// Ayats are fetched one file at a time while the surah plays, and a phone with
+// the screen off can stall or drop that request (Doze, battery saving, a dozing
+// Wi-Fi link). One failure used to end the surah silently, so a load is retried
+// before the chain gives up, and a give-up is remembered for the 'online' event.
+const LOAD_ATTEMPTS = 5
+const RETRY_DELAY_MS = 700
+
 // Surah 1 already carries 001000.mp3 as its own ayat 0, and surah 9 has no
 // Bismillah at all (MainActivity.kt:828).
 function hasBismillah(surah: number): boolean {
@@ -36,6 +44,14 @@ function trackKey(surah: number, ayat: number): string {
 
 function hasMediaSession(): boolean {
   return typeof navigator !== 'undefined' && 'mediaSession' in navigator
+}
+
+function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => { setTimeout(resolve, ms) })
+}
+
+function errorText(err: unknown): string {
+  return err instanceof Error ? `${err.name}: ${err.message}` : String(err)
 }
 
 export interface AudioState {
@@ -112,6 +128,9 @@ export function useAudio({
   // (MainActivity.kt:1712, isAyatPlaying stays true across ExoPlayer's own
   // playlist transitions).
   const ayatQueueRef = useRef<number[]>([])
+  // Where the chain died when every load attempt failed, so a network that comes
+  // back can pick it up instead of leaving the user with silence.
+  const resumeRef = useRef<{ surah: number; ayat: number; surahMode: boolean } | null>(null)
 
   playingRef.current = playing
   loadedAyatRef.current = loadedAyat
@@ -132,6 +151,7 @@ export function useAudio({
     if (prefetchRef.current?.key === key) return
     discardPrefetch()
     const gen = prefetchGenRef.current
+    audioLog('prefetch', key)
     try {
       const url = await getAudioObjectUrl(surah, ayat)
       if (gen !== prefetchGenRef.current) {
@@ -139,17 +159,24 @@ export function useAudio({
         return
       }
       prefetchRef.current = { key, url }
-    } catch {
+      audioLog('prefetch ok', key)
+    } catch (err) {
       // Leave it unfetched; onended falls back to a live load.
+      audioLog('prefetch fail', `${key} ${errorText(err)}`)
     }
   }, [discardPrefetch])
 
   // Warm the track that follows whatever is playing now.
   const prefetchNext = useCallback(() => {
-    if (!surahModeRef.current) return
     const surah = activeSurahRef.current
     const current = activeAyatRef.current
     if (surah === null || current === null) return
+    // Outside surah mode the only follow-on is a combined row's next queued id.
+    if (!surahModeRef.current) {
+      const queued = ayatQueueRef.current[0]
+      if (queued !== undefined) void prefetch(surah, queued)
+      return
+    }
     // While the Bismillah head plays, activeAyat already points at the ayat
     // that follows it, so that ayat is the next track.
     const next = bismillahRef.current ? current : current + 1
@@ -165,18 +192,28 @@ export function useAudio({
     ayat: number,
   ): boolean => {
     const entry = prefetchRef.current
-    if (!entry || entry.key !== trackKey(surah, ayat)) return false
+    const key = trackKey(surah, ayat)
+    if (!entry || entry.key !== key) {
+      audioLog('swap miss', key)
+      return false
+    }
     prefetchRef.current = null
     // Any load still in flight is stale now.
     loadGenRef.current++
     if (objectUrlRef.current) URL.revokeObjectURL(objectUrlRef.current)
     objectUrlRef.current = entry.url
     el.src = entry.url
-    void Promise.resolve(el.play()).catch(() => { setPlaying(false) })
+    audioLog('swap hit', key)
+    void Promise.resolve(el.play()).catch((err: unknown) => {
+      audioLog('play rejected', `${key} ${errorText(err)}`)
+      setPlaying(false)
+    })
     return true
   }, [])
 
   // Fetch the ayat (cache first), swap the element's src to a blob URL, play.
+  // A failure here is usually a stalled request from a backgrounded page, not a
+  // missing file, so it is worth retrying before the surah falls silent.
   const loadAndPlay = useCallback(async (
     el: HTMLAudioElement,
     surah: number,
@@ -184,28 +221,51 @@ export function useAudio({
     bismillah = false,
   ) => {
     const gen = ++loadGenRef.current
-    try {
-      const objectUrl = bismillah
-        ? await getAudioObjectUrl(BISMILLAH_SURAH, BISMILLAH_AYAT)
-        : await getAudioObjectUrl(surah, ayat)
-      if (gen !== loadGenRef.current) {
-        URL.revokeObjectURL(objectUrl)
+    const [fetchSurah, fetchAyat] = bismillah
+      ? [BISMILLAH_SURAH, BISMILLAH_AYAT]
+      : [surah, ayat]
+    const key = trackKey(fetchSurah, fetchAyat)
+    for (let attempt = 1; attempt <= LOAD_ATTEMPTS; attempt++) {
+      audioLog('load', `${key} try ${attempt}`)
+      try {
+        const objectUrl = await getAudioObjectUrl(fetchSurah, fetchAyat)
+        if (gen !== loadGenRef.current) {
+          URL.revokeObjectURL(objectUrl)
+          return
+        }
+        if (objectUrlRef.current) URL.revokeObjectURL(objectUrlRef.current)
+        objectUrlRef.current = objectUrl
+        el.src = objectUrl
+        await el.play()
+        audioLog('load ok', key)
+        if (gen === loadGenRef.current) prefetchNext()
         return
+      } catch (err) {
+        if (gen !== loadGenRef.current) return
+        audioLog('load fail', `${key} try ${attempt} ${errorText(err)}`)
+        if (attempt === LOAD_ATTEMPTS) break
+        await delay(RETRY_DELAY_MS)
+        if (gen !== loadGenRef.current) return
       }
-      if (objectUrlRef.current) URL.revokeObjectURL(objectUrlRef.current)
-      objectUrlRef.current = objectUrl
-      el.src = objectUrl
-      await el.play()
-      if (gen === loadGenRef.current) prefetchNext()
-    } catch {
-      if (gen === loadGenRef.current) setPlaying(false)
     }
+    // Out of attempts: hold the spot for the 'online' handler and stop.
+    resumeRef.current = { surah, ayat, surahMode: surahModeRef.current }
+    audioLog('gave up', key)
+    setPlaying(false)
   }, [prefetchNext])
 
   function getAudio() {
     if (!audioEl.current) {
       const el = new Audio()
+      if (isAudioDebug()) {
+        for (const type of ['error', 'stalled', 'waiting', 'playing', 'pause'] as const) {
+          el.addEventListener(type, () => {
+            audioLog(type, type === 'error' ? `code ${el.error?.code ?? '?'}` : '')
+          })
+        }
+      }
       el.onended = () => {
+        audioLog('ended', `${activeSurahRef.current}:${activeAyatRef.current}`)
         if (bismillahRef.current) {
           // Head done — fall through into the surah's own first ayat, already
           // held in activeAyatRef
@@ -221,7 +281,9 @@ export function useAudio({
           if (queue.length > 0) {
             const [next, ...rest] = queue
             ayatQueueRef.current = rest
-            void loadAndPlay(el, activeSurahRef.current!, next!)
+            const surah = activeSurahRef.current!
+            if (playPrefetched(el, surah, next!)) prefetchNext()
+            else void loadAndPlay(el, surah, next!)
             return
           }
           setPlaying(false)
@@ -242,7 +304,13 @@ export function useAudio({
         activeAyatRef.current = nextAyat
         setActiveAyat(nextAyat)
         if (autoTrackingRef.current) {
-          onAutoTrackRef.current(s, nextAyat)
+          // A throw here would skip the play() below and playback would simply
+          // stop, so the page turn can never take the audio chain with it.
+          try {
+            onAutoTrackRef.current(s, nextAyat)
+          } catch {
+            // Page stays where it is; the chain goes on.
+          }
         }
         if (playPrefetched(el, s, nextAyat)) prefetchNext()
         else void loadAndPlay(el, s, nextAyat)
@@ -257,11 +325,16 @@ export function useAudio({
     ayat: number,
     surahMode: boolean,
     bismillah = false,
+    /** Further ids of a combined multi_ayats row, set before the first load so
+     *  its prefetch warms the second file of the range. */
+    queue: number[] = [],
   ) => {
     const el = getAudio()
     el.pause()
     discardPrefetch()
-    ayatQueueRef.current = []
+    ayatQueueRef.current = queue
+    resumeRef.current = null
+    audioLog('start', `${surah}:${ayat} ${surahMode ? 'surah' : 'ayat'}${bismillah ? ' +bismillah' : ''}`)
 
     activeSurahRef.current = surah
     activeAyatRef.current = ayat
@@ -303,8 +376,7 @@ export function useAudio({
       return
     }
 
-    startPlayback(surah, ayat, false)
-    ayatQueueRef.current = restIds
+    startPlayback(surah, ayat, false, false, restIds)
     setAutoTracking(false)
     // Arms this ayat's "play surah from here" button (MainActivity.kt:784)
     setLoadedAyat(ayat)
@@ -376,8 +448,25 @@ export function useAudio({
 
   const togglePlayRef = useRef(togglePlay)
   const skipTrackRef = useRef(skipTrack)
+  const startPlaybackRef = useRef(startPlayback)
   togglePlayRef.current = togglePlay
   skipTrackRef.current = skipTrack
+  startPlaybackRef.current = startPlayback
+
+  // The surah died on a load that never came back — most likely the phone cut
+  // the network with the screen off. Pick it up where it stopped once the
+  // network returns, instead of leaving the user with silence.
+  useEffect(() => {
+    const onOnline = () => {
+      const spot = resumeRef.current
+      if (!spot || playingRef.current) return
+      resumeRef.current = null
+      audioLog('online resume', `${spot.surah}:${spot.ayat}`)
+      startPlaybackRef.current(spot.surah, spot.ayat, spot.surahMode)
+    }
+    window.addEventListener('online', onOnline)
+    return () => { window.removeEventListener('online', onOnline) }
+  }, [])
 
   // A live media session is what tells the OS this page is a media app: it puts
   // controls on the lock screen and keeps the page out of background freezing,
@@ -428,6 +517,7 @@ export function useAudio({
   // element paused though the app still thinks it is playing. Resume on return.
   useEffect(() => {
     const onVisible = () => {
+      audioLog('visibility', document.visibilityState)
       if (document.visibilityState !== 'visible') return
       const el = audioEl.current
       if (!playing || !el || !el.src || !el.paused) return

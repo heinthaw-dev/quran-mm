@@ -4,7 +4,7 @@ import { getAudioObjectUrl } from '../data/audioCache.ts'
 import { useAudio } from './useAudio.ts'
 
 vi.mock('../data/audioCache.ts', () => ({
-  getAudioObjectUrl: vi.fn(async () => 'blob:ayat'),
+  getAudioObjectUrl: vi.fn(async (surah: number, ayat: number) => `blob:${surah}:${ayat}`),
 }))
 
 const loaded = vi.mocked(getAudioObjectUrl)
@@ -188,11 +188,40 @@ describe('useAudio combined ayat range (small play button)', () => {
 
     // User taps a different, single ayat mid-range instead of letting it finish.
     act(() => { result.current[1].playAyat(18, 9) })
-    await waitFor(() => expect(loaded).toHaveBeenCalledWith(18, 9))
+    await waitFor(() => expect(FakeAudio.last?.src).toBe('blob:18:9'))
     act(() => { FakeAudio.last?.onended?.() })
 
-    expect(loaded).not.toHaveBeenCalledWith(18, 4)
+    expect(FakeAudio.last?.src).toBe('blob:18:9')
     expect(result.current[0].playing).toBe(false)
+  })
+
+  // Same reason as the surah chain: an await between 'ended' and play() is a
+  // silent gap a backgrounded page can be frozen in, and the range's own files
+  // used to be loaded cold, one await each.
+  it('prefetches the next id of the range while the current file plays', async () => {
+    const { result } = setup()
+
+    act(() => { result.current[1].playAyat(18, 3, [4, 5]) })
+
+    await waitFor(() => expect(loaded).toHaveBeenCalledWith(18, 4))
+  })
+
+  it('starts the next id of the range in the same task as the ended event', async () => {
+    const { result } = setup()
+
+    act(() => { result.current[1].playAyat(18, 3, [4, 5]) })
+    await waitFor(() => expect(loaded).toHaveBeenCalledWith(18, 4))
+
+    const el = FakeAudio.last!
+    const playsBefore = el.play.mock.calls.length
+    loaded.mockClear()
+    act(() => { el.onended?.() })
+
+    expect(el.play.mock.calls.length).toBe(playsBefore + 1)
+    expect(el.src).toBe('blob:18:4')
+    expect(loaded).not.toHaveBeenCalledWith(18, 4)
+    // And the file after it is warmed for the next boundary.
+    await waitFor(() => expect(loaded).toHaveBeenCalledWith(18, 5))
   })
 })
 
@@ -366,6 +395,47 @@ describe('useAudio gapless chain', () => {
     act(() => { document.dispatchEvent(new Event('visibilitychange')) })
 
     expect(el.play.mock.calls.length).toBe(playsBefore + 1)
+  })
+})
+
+// A phone with the screen off can stall the fetch for the next ayat, and one
+// stalled fetch used to end the surah for good.
+describe('useAudio load failures', () => {
+  beforeEach(() => { vi.useFakeTimers() })
+  afterEach(() => {
+    vi.useRealTimers()
+    // These cases install failing implementations, which mockClear would keep.
+    loaded.mockReset()
+    loaded.mockImplementation(async (surah: number, ayat: number) => `blob:${surah}:${ayat}`)
+  })
+
+  it('retries a failed load instead of falling silent', async () => {
+    loaded.mockRejectedValueOnce(new Error('network'))
+    const { result } = setup()
+
+    act(() => { result.current[1].playSurahFrom(18, 3) })
+    await act(async () => { await vi.advanceTimersByTimeAsync(1500) })
+
+    expect(FakeAudio.last?.src).toBe('blob:18:3')
+    expect(result.current[0].playing).toBe(true)
+  })
+
+  it('stops once the attempts run out, then picks the ayat up when the network returns', async () => {
+    loaded.mockRejectedValue(new Error('offline'))
+    const { result } = setup()
+
+    act(() => { result.current[1].playSurahFrom(18, 3) })
+    await act(async () => { await vi.advanceTimersByTimeAsync(6000) })
+    expect(result.current[0].playing).toBe(false)
+
+    loaded.mockResolvedValue('blob:18:3')
+    await act(async () => {
+      window.dispatchEvent(new Event('online'))
+      await vi.advanceTimersByTimeAsync(100)
+    })
+
+    expect(result.current[0].playing).toBe(true)
+    expect(FakeAudio.last?.src).toBe('blob:18:3')
   })
 })
 
