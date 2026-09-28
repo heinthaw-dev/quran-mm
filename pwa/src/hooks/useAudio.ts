@@ -32,6 +32,15 @@ const SESSION_ARTWORK = '/icons/icon-512.png'
 const LOAD_ATTEMPTS = 5
 const RETRY_DELAY_MS = 700
 
+// Chrome on Android pauses the element by itself when the src is swapped for the
+// next ayat while the phone's screen is off: an on-device log showed 'playing'
+// and 'pause' in the same tenth of a second, with the file already in memory and
+// no error at all. Nothing is broken at that point, so the chain takes the pause
+// back. The cap stops a browser that keeps refusing from being asked forever.
+const RESUME_ATTEMPTS = 6
+const RESUME_BACKOFF_MS = 400
+const MAX_RECOVERIES_PER_TRACK = 12
+
 // Surah 1 already carries 001000.mp3 as its own ayat 0, and surah 9 has no
 // Bismillah at all (MainActivity.kt:828).
 function hasBismillah(surah: number): boolean {
@@ -131,6 +140,10 @@ export function useAudio({
   // Where the chain died when every load attempt failed, so a network that comes
   // back can pick it up instead of leaving the user with silence.
   const resumeRef = useRef<{ surah: number; ayat: number; surahMode: boolean } | null>(null)
+  // A pause this hook asked for (user tap, surah change, a new track), which the
+  // 'pause' watchdog must let through instead of undoing.
+  const intentionalPauseRef = useRef(false)
+  const recoveriesRef = useRef(0)
 
   playingRef.current = playing
   loadedAyatRef.current = loadedAyat
@@ -184,6 +197,28 @@ export function useAudio({
     void prefetch(surah, next)
   }, [prefetch])
 
+  // Take back a pause the app never asked for (see RESUME_ATTEMPTS).
+  const recoverFromPause = useCallback(async (el: HTMLAudioElement) => {
+    recoveriesRef.current++
+    if (recoveriesRef.current > MAX_RECOVERIES_PER_TRACK) {
+      audioLog('resume gave up', 'too many pauses on one track')
+      setPlaying(false)
+      return
+    }
+    for (let attempt = 1; attempt <= RESUME_ATTEMPTS; attempt++) {
+      if (!playingRef.current) return
+      try {
+        await el.play()
+        audioLog('resumed', `try ${attempt}`)
+        return
+      } catch (err) {
+        audioLog('resume rejected', `try ${attempt} ${errorText(err)}`)
+        await delay(RESUME_BACKOFF_MS * attempt)
+      }
+    }
+    if (playingRef.current) setPlaying(false)
+  }, [])
+
   // Hand the element an already-fetched blob URL, with no await between the
   // 'ended' event and play() — the whole swap runs in that one task.
   const playPrefetched = useCallback((
@@ -203,6 +238,8 @@ export function useAudio({
     if (objectUrlRef.current) URL.revokeObjectURL(objectUrlRef.current)
     objectUrlRef.current = entry.url
     el.src = entry.url
+    intentionalPauseRef.current = false
+    recoveriesRef.current = 0
     audioLog('swap hit', key)
     void Promise.resolve(el.play()).catch((err: unknown) => {
       audioLog('play rejected', `${key} ${errorText(err)}`)
@@ -236,6 +273,8 @@ export function useAudio({
         if (objectUrlRef.current) URL.revokeObjectURL(objectUrlRef.current)
         objectUrlRef.current = objectUrl
         el.src = objectUrl
+        intentionalPauseRef.current = false
+        recoveriesRef.current = 0
         await el.play()
         audioLog('load ok', key)
         if (gen === loadGenRef.current) prefetchNext()
@@ -258,12 +297,26 @@ export function useAudio({
     if (!audioEl.current) {
       const el = new Audio()
       if (isAudioDebug()) {
-        for (const type of ['error', 'stalled', 'waiting', 'playing', 'pause'] as const) {
+        for (const type of ['error', 'stalled', 'waiting', 'playing'] as const) {
           el.addEventListener(type, () => {
             audioLog(type, type === 'error' ? `code ${el.error?.code ?? '?'}` : '')
           })
         }
       }
+      el.addEventListener('pause', () => {
+        audioLog('pause', `t=${el.currentTime.toFixed(1)}`)
+        // Ours, or the natural pause at the end of a track — leave both alone.
+        if (intentionalPauseRef.current) {
+          intentionalPauseRef.current = false
+          return
+        }
+        // Chrome fires 'pause' just before 'ended', and a play() there would
+        // replay the ayat that has only just finished.
+        const nearEnd = Number.isFinite(el.duration) && el.duration - el.currentTime < 0.3
+        if (!playingRef.current || el.ended || nearEnd) return
+        audioLog('pause not ours', `${activeSurahRef.current}:${activeAyatRef.current}`)
+        void recoverFromPause(el)
+      })
       el.onended = () => {
         audioLog('ended', `${activeSurahRef.current}:${activeAyatRef.current}`)
         if (bismillahRef.current) {
@@ -330,7 +383,9 @@ export function useAudio({
     queue: number[] = [],
   ) => {
     const el = getAudio()
+    intentionalPauseRef.current = true
     el.pause()
+    recoveriesRef.current = 0
     discardPrefetch()
     ayatQueueRef.current = queue
     resumeRef.current = null
@@ -363,6 +418,7 @@ export function useAudio({
 
     if (sameTrack && el) {
       if (playingRef.current) {
+        intentionalPauseRef.current = true
         el.pause()
         setPlaying(false)
         return
@@ -396,6 +452,7 @@ export function useAudio({
   const togglePlay = useCallback(() => {
     const el = audioEl.current
     if (playing && el) {
+      intentionalPauseRef.current = true
       el.pause()
       setPlaying(false)
       return
@@ -539,6 +596,7 @@ export function useAudio({
   // Pause when surah changes (user navigated away); reset tracking (MainActivity.kt:674)
   useEffect(() => {
     if (activeSurahRef.current !== null && activeSurahRef.current !== surahId) {
+      intentionalPauseRef.current = true
       audioEl.current?.pause()
       discardPrefetch()
       setPlaying(false)
@@ -555,6 +613,7 @@ export function useAudio({
 
   // Cleanup on unmount
   useEffect(() => () => {
+    intentionalPauseRef.current = true
     audioEl.current?.pause()
     if (objectUrlRef.current) URL.revokeObjectURL(objectUrlRef.current)
     const pending = prefetchRef.current

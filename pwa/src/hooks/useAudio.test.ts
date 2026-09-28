@@ -15,12 +15,27 @@ class FakeAudio {
   static last: FakeAudio | null = null
   src = ''
   paused = false
+  ended = false
   currentTime = 0
   onended: (() => void) | null = null
   play = vi.fn(async () => {})
   pause = vi.fn()
+  private listeners = new Map<string, Set<() => void>>()
   constructor() {
     FakeAudio.last = this
+  }
+  addEventListener(type: string, fn: () => void) {
+    const set = this.listeners.get(type) ?? new Set()
+    set.add(fn)
+    this.listeners.set(type, set)
+  }
+  removeEventListener(type: string, fn: () => void) {
+    this.listeners.get(type)?.delete(fn)
+  }
+  /** Stands in for the browser firing the event itself (e.g. a pause Chrome
+   *  performs on its own while the phone's screen is off). */
+  emit(type: string) {
+    this.listeners.get(type)?.forEach((fn) => { fn() })
   }
 }
 
@@ -395,6 +410,54 @@ describe('useAudio gapless chain', () => {
     act(() => { document.dispatchEvent(new Event('visibilitychange')) })
 
     expect(el.play.mock.calls.length).toBe(playsBefore + 1)
+  })
+})
+
+// An on-device log showed Chrome pausing the element on its own, right after the
+// src swap, at the moment the phone's screen went off: 'playing' and 'pause' in
+// the same tenth of a second, file already in memory, no error.
+describe('useAudio unsolicited pause', () => {
+  it('plays again when the browser pauses a track by itself', async () => {
+    const { result } = setup()
+
+    act(() => { result.current[1].playSurahFrom(18, 3) })
+    await waitFor(() => expect(FakeAudio.last?.play).toHaveBeenCalled())
+
+    const el = FakeAudio.last!
+    const playsBefore = el.play.mock.calls.length
+    await act(async () => { el.emit('pause') })
+
+    expect(el.play.mock.calls.length).toBe(playsBefore + 1)
+    expect(result.current[0].playing).toBe(true)
+  })
+
+  it('leaves the pause alone when the user asked for it', async () => {
+    const { result } = setup()
+
+    act(() => { result.current[1].playSurahFrom(18, 3) })
+    await waitFor(() => expect(FakeAudio.last?.play).toHaveBeenCalled())
+
+    const el = FakeAudio.last!
+    act(() => { result.current[1].togglePlay() })
+    const playsBefore = el.play.mock.calls.length
+    await act(async () => { el.emit('pause') })
+
+    expect(el.play.mock.calls.length).toBe(playsBefore)
+    expect(result.current[0].playing).toBe(false)
+  })
+
+  it('leaves the natural pause at the end of a track alone', async () => {
+    const { result } = setup()
+
+    act(() => { result.current[1].playSurahFrom(18, 3) })
+    await waitFor(() => expect(FakeAudio.last?.play).toHaveBeenCalled())
+
+    const el = FakeAudio.last!
+    el.ended = true
+    const playsBefore = el.play.mock.calls.length
+    await act(async () => { el.emit('pause') })
+
+    expect(el.play.mock.calls.length).toBe(playsBefore)
   })
 })
 
