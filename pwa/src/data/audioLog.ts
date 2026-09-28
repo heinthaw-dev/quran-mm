@@ -4,7 +4,6 @@
 // flag then survives in localStorage, because an installed PWA relaunches from
 // start_url with no query string. /?audiodebug=0 turns it off and wipes the log.
 const FLAG_KEY = 'quran.audioDebug'
-const CONCAT_KEY = 'quran.audioConcat'
 const LOG_KEY = 'quran.audioLog'
 const MAX_ENTRIES = 400
 
@@ -18,7 +17,6 @@ export interface AudioLogEntry {
 }
 
 let enabled: boolean | null = null
-let concatTest: boolean | null = null
 let entries: AudioLogEntry[] | null = null
 let started = 0
 const listeners = new Set<() => void>()
@@ -61,13 +59,6 @@ export function isAudioDebug(): boolean {
   return enabled
 }
 
-// Play a whole surah as one joined file instead of one file per ayat, to confirm
-// that the file switch is what a backgrounded Chrome refuses. The ayat highlight
-// does not follow along on this path, so it is a test switch, not a feature.
-export function isSurahConcatTest(): boolean {
-  concatTest ??= persistedFlag('audioconcat', CONCAT_KEY)
-  return concatTest
-}
 
 export function getAudioLog(): AudioLogEntry[] {
   entries ??= read<AudioLogEntry[]>(LOG_KEY, [])

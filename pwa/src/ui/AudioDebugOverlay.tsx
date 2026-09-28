@@ -7,9 +7,9 @@ import {
   formatAudioLog,
   getAudioLog,
   isAudioDebug,
-  isSurahConcatTest,
   subscribeAudioLog,
 } from '../data/audioLog.ts'
+import { canStreamAudio } from '../data/audioStream.ts'
 import styles from './AudioDebugOverlay.module.css'
 
 export function AudioDebugOverlay() {
@@ -27,8 +27,8 @@ export function AudioDebugOverlay() {
   const entries = getAudioLog()
   // `version` only exists to re-render on every new entry.
   void version
-  // Which playback path is armed, so a test is never run against the wrong one.
-  const mode = isSurahConcatTest() ? '1 file' : 'per ayat'
+  // Which playback path is armed, so a test is never read against the wrong one.
+  const mode = canStreamAudio() ? 'stream' : 'per ayat'
 
   if (!open) {
     return (

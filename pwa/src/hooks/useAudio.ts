@@ -2,8 +2,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 
 // Synchronous ref update pattern — avoids stale closure in onended handler
-import { getAudioObjectUrl, getSurahObjectUrl } from '../data/audioCache.ts'
-import { audioLog, isAudioDebug, isSurahConcatTest } from '../data/audioLog.ts'
+import { getAudioObjectUrl } from '../data/audioCache.ts'
+import { audioLog, isAudioDebug } from '../data/audioLog.ts'
+import { canStreamAudio, openAudioStream } from '../data/audioStream.ts'
+import type { AudioStream, StreamTrack } from '../data/audioStream.ts'
 
 interface UseAudioOptions {
   surahId: number
@@ -144,9 +146,9 @@ export function useAudio({
   // 'pause' watchdog must let through instead of undoing.
   const intentionalPauseRef = useRef(false)
   const recoveriesRef = useRef(0)
-  // The surah is loaded as one joined file (the /?audioconcat=1 test), so there
-  // is no per-ayat chain to advance when it ends.
-  const concatRef = useRef(false)
+  // The run (a surah, or a combined row's range) is playing as one streamed
+  // resource, so there is no per-ayat chain to advance and no src to swap.
+  const streamRef = useRef<AudioStream | null>(null)
 
   playingRef.current = playing
   loadedAyatRef.current = loadedAyat
@@ -200,35 +202,37 @@ export function useAudio({
     void prefetch(surah, next)
   }, [prefetch])
 
-  // The /?audioconcat=1 test: the whole surah as one resource, so a hidden page
-  // never has to start a second file. No per-ayat chain, so no prefetch either.
-  const loadConcatAndPlay = useCallback(async (
+  const closeStream = useCallback(() => {
+    streamRef.current?.close()
+    streamRef.current = null
+  }, [])
+
+  // One resource for the whole run: the element is handed a MediaSource and
+  // never a second file, which is the failure the device logs pinned down.
+  const streamAndPlay = useCallback(async (
     el: HTMLAudioElement,
-    surah: number,
-    firstAyat: number,
-    lastAyat: number,
+    tracks: StreamTrack[],
   ) => {
     const gen = ++loadGenRef.current
-    const span = `${surah}:${firstAyat}-${lastAyat}`
-    audioLog('concat load', span)
+    const span = `${tracks[0]?.surah}:${tracks[0]?.ayat}+${tracks.length - 1}`
+    audioLog('stream load', span)
+    closeStream()
+    const stream = openAudioStream(tracks, () => el.currentTime)
+    streamRef.current = stream
+    // The stream owns its object URL; the per-file path's one is done with.
+    if (objectUrlRef.current) URL.revokeObjectURL(objectUrlRef.current)
+    objectUrlRef.current = null
+    el.src = stream.url
+    intentionalPauseRef.current = false
+    recoveriesRef.current = 0
     try {
-      const objectUrl = await getSurahObjectUrl(surah, firstAyat, lastAyat)
-      if (gen !== loadGenRef.current) {
-        URL.revokeObjectURL(objectUrl)
-        return
-      }
-      if (objectUrlRef.current) URL.revokeObjectURL(objectUrlRef.current)
-      objectUrlRef.current = objectUrl
-      el.src = objectUrl
-      intentionalPauseRef.current = false
-      recoveriesRef.current = 0
       await el.play()
-      audioLog('concat playing', span)
+      audioLog('stream playing', span)
     } catch (err) {
-      audioLog('concat fail', `${span} ${errorText(err)}`)
+      audioLog('stream play fail', `${span} ${errorText(err)}`)
       if (gen === loadGenRef.current) setPlaying(false)
     }
-  }, [])
+  }, [closeStream])
 
   // Take back a pause the app never asked for (see RESUME_ATTEMPTS).
   const recoverFromPause = useCallback(async (el: HTMLAudioElement) => {
@@ -343,6 +347,23 @@ export function useAudio({
           })
         }
       }
+      // With one resource per run, the ayat boundaries are positions inside it,
+      // so the highlight follows the playhead instead of a file ending.
+      el.addEventListener('timeupdate', () => {
+        const stream = streamRef.current
+        if (!stream) return
+        const at = el.currentTime
+        const span = stream.spans().find((s) => at >= s.start && at < s.end)
+        if (!span || span.ayat === activeAyatRef.current) return
+        activeAyatRef.current = span.ayat
+        setActiveAyat(span.ayat)
+        if (!autoTrackingRef.current) return
+        try {
+          onAutoTrackRef.current(activeSurahRef.current ?? span.ayat, span.ayat)
+        } catch {
+          // A page turn must never take playback with it.
+        }
+      })
       el.addEventListener('pause', () => {
         audioLog('pause', `t=${el.currentTime.toFixed(1)}`)
         // Ours, or the natural pause at the end of a track — leave both alone.
@@ -359,13 +380,15 @@ export function useAudio({
       })
       el.onended = () => {
         audioLog('ended', `${activeSurahRef.current}:${activeAyatRef.current}`)
-        if (concatRef.current) {
-          // One resource held the whole surah, so its end is the surah's end.
-          concatRef.current = false
+        if (streamRef.current) {
+          // One resource held the whole run, so its end is the run's end.
+          const wasSurah = surahModeRef.current
+          closeStream()
           surahModeRef.current = false
           setIsSurahMode(false)
-          queueEndedRef.current = true
+          queueEndedRef.current = wasSurah
           setPlaying(false)
+          if (!wasSurah) setLoadedAyat(null)
           return
         }
         if (bismillahRef.current) {
@@ -440,13 +463,16 @@ export function useAudio({
     resumeRef.current = null
     audioLog('start', `${surah}:${ayat} ${surahMode ? 'surah' : 'ayat'}${bismillah ? ' +bismillah' : ''}`)
 
-    const concat = surahMode && isSurahConcatTest()
-    concatRef.current = concat
+    // A single file has no second start to be refused, so it stays on the
+    // simple path; anything with a follow-on track streams.
+    const runLength = surahMode ? totalAyatsRef.current - ayat + 1 : queue.length + 1
+    const streamed = canStreamAudio() && (runLength > 1 || bismillah)
+    closeStream()
 
     activeSurahRef.current = surah
     activeAyatRef.current = ayat
     surahModeRef.current = surahMode
-    bismillahRef.current = bismillah && !concat
+    bismillahRef.current = bismillah && !streamed
     queueEndedRef.current = false
 
     setActiveSurah(surah)
@@ -454,9 +480,29 @@ export function useAudio({
     setIsSurahMode(surahMode)
     setPlaying(true)
 
-    if (concat) void loadConcatAndPlay(el, surah, ayat, totalAyatsRef.current)
-    else void loadAndPlay(el, surah, ayat, bismillah)
-  }, [loadAndPlay, loadConcatAndPlay, discardPrefetch]) // eslint-disable-line react-hooks/exhaustive-deps
+    if (streamed) {
+      const tracks: StreamTrack[] = []
+      // The head is always folder 001, whatever surah follows it, and the
+      // highlight already sits on the ayat it leads into (MainActivity.kt:834).
+      if (bismillah) {
+        tracks.push({ surah: BISMILLAH_SURAH, ayat: BISMILLAH_AYAT, highlight: ayat })
+      }
+      if (surahMode) {
+        for (let id = ayat; id <= totalAyatsRef.current; id++) {
+          tracks.push({ surah, ayat: id, highlight: id })
+        }
+      } else {
+        // A combined row: every file of the range, with the highlight pinned to
+        // the row's own anchor id (MainActivity.kt:1712).
+        tracks.push({ surah, ayat, highlight: ayat })
+        for (const id of queue) tracks.push({ surah, ayat: id, highlight: ayat })
+        ayatQueueRef.current = []
+      }
+      void streamAndPlay(el, tracks)
+      return
+    }
+    void loadAndPlay(el, surah, ayat, bismillah)
+  }, [loadAndPlay, streamAndPlay, closeStream, discardPrefetch]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const playAyat = useCallback((surah: number, ayat: number, restIds: number[] = []) => {
     // Same ayat (or its range) still loaded from before: act as a real
@@ -537,6 +583,16 @@ export function useAudio({
     if (surah === null || current === null) return
     const target = current + delta
     if (target < firstAyatRef.current || target > totalAyatsRef.current) return
+    const el = audioEl.current
+    const span = streamRef.current?.spans().find((s) => s.ayat === target)
+    if (el && span) {
+      el.currentTime = span.start
+      activeAyatRef.current = target
+      setActiveAyat(target)
+      if (autoTrackingRef.current) onAutoTrackRef.current(surah, target)
+      return
+    }
+    // Ahead of what the stream has appended: start a fresh one from there.
     startPlayback(surah, target, true)
     if (autoTrackingRef.current) onAutoTrackRef.current(surah, target)
   }, [startPlayback])
@@ -660,6 +716,7 @@ export function useAudio({
     if (activeSurahRef.current !== null && activeSurahRef.current !== surahId) {
       intentionalPauseRef.current = true
       audioEl.current?.pause()
+      closeStream()
       discardPrefetch()
       setPlaying(false)
       setActiveSurah(null)
@@ -671,12 +728,13 @@ export function useAudio({
       setLoadedAyat(null)
     }
     setAutoTracking(false)
-  }, [surahId, discardPrefetch])
+  }, [surahId, discardPrefetch, closeStream])
 
   // Cleanup on unmount
   useEffect(() => () => {
     intentionalPauseRef.current = true
     audioEl.current?.pause()
+    streamRef.current?.close()
     if (objectUrlRef.current) URL.revokeObjectURL(objectUrlRef.current)
     const pending = prefetchRef.current
     if (pending) URL.revokeObjectURL(pending.url)
