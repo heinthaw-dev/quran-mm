@@ -2,8 +2,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 
 // Synchronous ref update pattern — avoids stale closure in onended handler
-import { getAudioObjectUrl } from '../data/audioCache.ts'
-import { audioLog, isAudioDebug } from '../data/audioLog.ts'
+import { getAudioObjectUrl, getSurahObjectUrl } from '../data/audioCache.ts'
+import { audioLog, isAudioDebug, isSurahConcatTest } from '../data/audioLog.ts'
 
 interface UseAudioOptions {
   surahId: number
@@ -144,6 +144,9 @@ export function useAudio({
   // 'pause' watchdog must let through instead of undoing.
   const intentionalPauseRef = useRef(false)
   const recoveriesRef = useRef(0)
+  // The surah is loaded as one joined file (the /?audioconcat=1 test), so there
+  // is no per-ayat chain to advance when it ends.
+  const concatRef = useRef(false)
 
   playingRef.current = playing
   loadedAyatRef.current = loadedAyat
@@ -196,6 +199,36 @@ export function useAudio({
     if (next > totalAyatsRef.current) return
     void prefetch(surah, next)
   }, [prefetch])
+
+  // The /?audioconcat=1 test: the whole surah as one resource, so a hidden page
+  // never has to start a second file. No per-ayat chain, so no prefetch either.
+  const loadConcatAndPlay = useCallback(async (
+    el: HTMLAudioElement,
+    surah: number,
+    firstAyat: number,
+    lastAyat: number,
+  ) => {
+    const gen = ++loadGenRef.current
+    const span = `${surah}:${firstAyat}-${lastAyat}`
+    audioLog('concat load', span)
+    try {
+      const objectUrl = await getSurahObjectUrl(surah, firstAyat, lastAyat)
+      if (gen !== loadGenRef.current) {
+        URL.revokeObjectURL(objectUrl)
+        return
+      }
+      if (objectUrlRef.current) URL.revokeObjectURL(objectUrlRef.current)
+      objectUrlRef.current = objectUrl
+      el.src = objectUrl
+      intentionalPauseRef.current = false
+      recoveriesRef.current = 0
+      await el.play()
+      audioLog('concat playing', span)
+    } catch (err) {
+      audioLog('concat fail', `${span} ${errorText(err)}`)
+      if (gen === loadGenRef.current) setPlaying(false)
+    }
+  }, [])
 
   // Take back a pause the app never asked for (see RESUME_ATTEMPTS).
   const recoverFromPause = useCallback(async (el: HTMLAudioElement) => {
@@ -326,6 +359,15 @@ export function useAudio({
       })
       el.onended = () => {
         audioLog('ended', `${activeSurahRef.current}:${activeAyatRef.current}`)
+        if (concatRef.current) {
+          // One resource held the whole surah, so its end is the surah's end.
+          concatRef.current = false
+          surahModeRef.current = false
+          setIsSurahMode(false)
+          queueEndedRef.current = true
+          setPlaying(false)
+          return
+        }
         if (bismillahRef.current) {
           // Head done — fall through into the surah's own first ayat, already
           // held in activeAyatRef
@@ -398,10 +440,13 @@ export function useAudio({
     resumeRef.current = null
     audioLog('start', `${surah}:${ayat} ${surahMode ? 'surah' : 'ayat'}${bismillah ? ' +bismillah' : ''}`)
 
+    const concat = surahMode && isSurahConcatTest()
+    concatRef.current = concat
+
     activeSurahRef.current = surah
     activeAyatRef.current = ayat
     surahModeRef.current = surahMode
-    bismillahRef.current = bismillah
+    bismillahRef.current = bismillah && !concat
     queueEndedRef.current = false
 
     setActiveSurah(surah)
@@ -409,8 +454,9 @@ export function useAudio({
     setIsSurahMode(surahMode)
     setPlaying(true)
 
-    void loadAndPlay(el, surah, ayat, bismillah)
-  }, [loadAndPlay, discardPrefetch]) // eslint-disable-line react-hooks/exhaustive-deps
+    if (concat) void loadConcatAndPlay(el, surah, ayat, totalAyatsRef.current)
+    else void loadAndPlay(el, surah, ayat, bismillah)
+  }, [loadAndPlay, loadConcatAndPlay, discardPrefetch]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const playAyat = useCallback((surah: number, ayat: number, restIds: number[] = []) => {
     // Same ayat (or its range) still loaded from before: act as a real

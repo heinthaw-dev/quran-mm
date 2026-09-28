@@ -109,7 +109,7 @@ async function matchCachedAudio(cache: Cache, path: string): Promise<Response | 
 // answers it with HTML the element cannot decode. Downloaded ayats come from
 // Cache Storage (offline); anything else streams from the host and is NOT
 // cached, so the Delete Audio list keeps meaning "downloaded", like native.
-export async function getAudioObjectUrl(surah: number, ayat: number): Promise<string> {
+export async function getAudioBlob(surah: number, ayat: number): Promise<Blob> {
   let res: Response | undefined
   if ('caches' in window) {
     const cache = await caches.open(AUDIO_CACHE_NAME)
@@ -117,5 +117,25 @@ export async function getAudioObjectUrl(surah: number, ayat: number): Promise<st
   }
   if (!res) res = await fetch(audioUrl(surah, ayat), { headers: AUDIO_FETCH_HEADERS })
   if (!res.ok) throw new Error(`Audio unavailable (${res.status})`)
-  return URL.createObjectURL(await res.blob())
+  return res.blob()
+}
+
+export async function getAudioObjectUrl(surah: number, ayat: number): Promise<string> {
+  return URL.createObjectURL(await getAudioBlob(surah, ayat))
+}
+
+// One surah as a single resource. Chrome stops letting a backgrounded page start
+// a NEW audio file after a few seconds, which is what breaks the ayat-by-ayat
+// chain; joined mp3 frames play as one file, so there is no second start to
+// refuse. Behind /?audioconcat=1 while that reading is being confirmed.
+export async function getSurahObjectUrl(
+  surah: number,
+  firstAyat: number,
+  lastAyat: number,
+): Promise<string> {
+  const parts: Blob[] = []
+  for (let ayat = firstAyat; ayat <= lastAyat; ayat++) {
+    parts.push(await getAudioBlob(surah, ayat))
+  }
+  return URL.createObjectURL(new Blob(parts, { type: 'audio/mpeg' }))
 }

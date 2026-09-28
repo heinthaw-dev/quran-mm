@@ -4,6 +4,7 @@
 // flag then survives in localStorage, because an installed PWA relaunches from
 // start_url with no query string. /?audiodebug=0 turns it off and wipes the log.
 const FLAG_KEY = 'quran.audioDebug'
+const CONCAT_KEY = 'quran.audioConcat'
 const LOG_KEY = 'quran.audioLog'
 const MAX_ENTRIES = 400
 
@@ -17,6 +18,7 @@ export interface AudioLogEntry {
 }
 
 let enabled: boolean | null = null
+let concatTest: boolean | null = null
 let entries: AudioLogEntry[] | null = null
 let started = 0
 const listeners = new Set<() => void>()
@@ -38,18 +40,33 @@ function write(key: string, value: unknown): void {
   }
 }
 
+// A URL switch that sticks, for the same reason the debug flag does: an
+// installed PWA relaunches from start_url and would drop a query string.
+function persistedFlag(param: string, key: string): boolean {
+  if (typeof window === 'undefined') return false
+  const value = new URLSearchParams(window.location.search).get(param)
+  if (value === '1') write(key, true)
+  if (value === '0') write(key, false)
+  return read<boolean>(key, false)
+}
+
 export function isAudioDebug(): boolean {
   if (enabled !== null) return enabled
   if (typeof window === 'undefined') return false
-  const param = new URLSearchParams(window.location.search).get('audiodebug')
-  if (param === '1') write(FLAG_KEY, true)
-  if (param === '0') {
-    write(FLAG_KEY, false)
+  if (new URLSearchParams(window.location.search).get('audiodebug') === '0') {
     write(LOG_KEY, [])
     entries = []
   }
-  enabled = read<boolean>(FLAG_KEY, false)
+  enabled = persistedFlag('audiodebug', FLAG_KEY)
   return enabled
+}
+
+// Play a whole surah as one joined file instead of one file per ayat, to confirm
+// that the file switch is what a backgrounded Chrome refuses. The ayat highlight
+// does not follow along on this path, so it is a test switch, not a feature.
+export function isSurahConcatTest(): boolean {
+  concatTest ??= persistedFlag('audioconcat', CONCAT_KEY)
+  return concatTest
 }
 
 export function getAudioLog(): AudioLogEntry[] {
